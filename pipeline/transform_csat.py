@@ -182,7 +182,16 @@ def di_turma_label(hab: str, cod, di_turma_map: dict) -> str:
 
 
 def build_data_geral(rows: list[dict], di_turma_map: dict) -> list[dict]:
+    """Cada `tipo_avaliacao` pode ter mais de uma linha por resposta (ver
+    ITEM_COLUNAS em melt_raw_export -- ex. "Aula Online" recebe 2 perguntas
+    diferentes da planilha bruta) -- por isso acumula soma+contagem e tira a
+    média no final, em vez de só sobrescrever com a última nota vista.
+    Confirmado batendo com o dashboard de referência (ver pipeline/README.md
+    > "Fórmula dos itens").
+    """
     by_id: dict[str, dict] = {}
+    item_soma: dict[tuple[str, str], float] = {}
+    item_cnt: dict[tuple[str, str], int] = {}
 
     for r in rows:
         id_ = r.get("db-id")
@@ -206,6 +215,7 @@ def build_data_geral(rows: list[dict], di_turma_map: dict) -> list[dict]:
                 "di_turma": di_turma_label(hab, r.get("codturma"), di_turma_map),
                 "nota_geral": _num(r.get("nota_geral")),
                 "classificacao": classify(r.get("nota_geral")),
+                "disciplina": r.get("nomedisciplina") or "",
                 "nota_Aula_Online": None, "nota_Aula_Prática": None,
                 "nota_Infraestrutura": None, "nota_Plataforma_Avida": None,
                 "nota_Professor": None, "nota_Triagem": None,
@@ -214,7 +224,12 @@ def build_data_geral(rows: list[dict], di_turma_map: dict) -> list[dict]:
         campo = TIPO_PARA_CAMPO.get(r.get("tipo_avaliacao"))
         nota = _num(r.get("nota"))
         if campo and nota is not None:
-            by_id[id_][campo] = nota
+            chave = (id_, campo)
+            item_soma[chave] = item_soma.get(chave, 0) + nota
+            item_cnt[chave] = item_cnt.get(chave, 0) + 1
+
+    for (id_, campo), cnt in item_cnt.items():
+        by_id[id_][campo] = item_soma[(id_, campo)] / cnt
 
     return [r for r in by_id.values() if r["unidade_calc"] in UNIDADES_VALIDAS]
 
@@ -301,21 +316,36 @@ RAW_COLUMNS_OBRIGATORIAS = (
     "db-id", "habilitacao", "unidade", "nota", "data_resposta", "nomedisciplina",
 )
 
-# tipo_avaliacao (DATA_GERAL/DATA_ITENS) -> trecho (sem acento, minúsculo)
-# que localiza a coluna real na exportação -- os nomes de pergunta têm
-# texto variável (nome de disciplina/professor entre colchetes) e podem
-# mudar de redação, então a busca é por trecho, não pelo texto inteiro.
-# Mesmo princípio do encontrar_coluna() de ouvidoria-csat-teste (COLUNAS_REVIEW).
-ITEM_COLUNAS: dict[str, list[str]] = {
-    "Aula Online": ["satisfacao com as aulas online"],
-    "Aula Prática": ["satisfacao com as aulas praticas"],
-    "Infraestrutura": ["qualidade da infraestrutura dos consultorios"],
-    "Plataforma Avida": ["facilidade de uso da plataforma"],
-    "Professor": [
-        "conducao da aula pratica pelo professor",
-        "conducao das aulas praticas pelos professores",
+# tipo_avaliacao (DATA_GERAL/DATA_ITENS) -> lista de "componentes", cada um
+# uma lista de aliases (trecho sem acento, minúsculo) que localizam a coluna
+# real na exportação. Um tipo com mais de um componente vira uma MÉDIA das
+# perguntas correspondentes (build_data_geral soma+conta por tipo) -- é
+# assim que o dashboard de referência calcula (conferido comparando 4
+# respostas reais, ver pipeline/README.md > "Fórmula dos itens"; a
+# nomenclatura de alguns campos é meio contraintuitiva -- "Professor", por
+# exemplo, na verdade vem da pergunta de didática da aula ONLINE, não da
+# pergunta sobre o professor da aula prática).
+#
+# Um componente com mais de um alias (ex. "Aula Prática", 2º componente)
+# são duas perguntas mutuamente exclusivas por linha (a ação "PG Médica"
+# usa uma redação no singular, outra ação usa o plural -- nunca as duas
+# preenchidas na mesma resposta) -- por linha, usa a primeira que estiver
+# preenchida. Sem esse fallback, ~99% das respostas ficam sem essa nota
+# (achado real ao rodar contra a exportação: só 21 de 2210 tinham a
+# variante singular preenchida).
+ITEM_COLUNAS: dict[str, list[list[str]]] = {
+    "Aula Online": [
+        ["satisfacao com as aulas online"],
+        ["aulas online apresentaram exemplos"],
     ],
-    "Triagem": ["avalia a triagem dos pacientes"],
+    "Aula Prática": [
+        ["satisfacao com as aulas praticas"],
+        ["conducao da aula pratica pelo professor", "conducao das aulas praticas pelos professores"],
+    ],
+    "Infraestrutura": [["qualidade da infraestrutura dos consultorios"]],
+    "Plataforma Avida": [["facilidade de uso da plataforma"]],
+    "Professor": [["dinamica da aula e a didatica"]],
+    "Triagem": [["avalia a triagem dos pacientes"]],
 }
 
 # Perguntas de texto livre usadas como comentário quando a coluna genérica
@@ -333,6 +363,18 @@ def _encontrar_coluna(colunas, aliases: list[str]) -> str | None:
             if alvo in _sem_acento(col).lower():
                 return col
     return None
+
+
+def _encontrar_colunas_grupo(colunas, aliases: list[str]) -> list[str]:
+    """Acha TODAS as colunas que batem com qualquer alias do grupo (mantém
+    a ordem em que aparecem na planilha) -- usado quando duas redações da
+    mesma pergunta existem e são mutuamente exclusivas por linha."""
+    encontradas = []
+    for col in colunas:
+        col_norm = _sem_acento(col).lower()
+        if any(_sem_acento(alias).lower() in col_norm for alias in aliases) and col not in encontradas:
+            encontradas.append(col)
+    return encontradas
 
 
 def _montar_comentario(row: dict, col_agradou: str | None, col_melhorar: str | None) -> str:
@@ -363,10 +405,22 @@ def melt_raw_export(df: pd.DataFrame, warnings: list[str] | None = None) -> list
         raise RuntimeError(f"Colunas obrigatórias ausentes na exportação: {', '.join(faltando)}")
 
     colunas = list(df.columns)
-    item_col = {tipo: _encontrar_coluna(colunas, aliases) for tipo, aliases in ITEM_COLUNAS.items()}
-    for tipo, col in item_col.items():
-        if col is None:
-            warnings.append(f'Coluna do item "{tipo}" não encontrada na exportação -- ficará sempre vazia.')
+    # tipo -> lista de componentes resolvidos; cada componente é a lista de
+    # colunas reais (1 ou mais, quando há variantes mutuamente exclusivas)
+    # que alimentam aquela parte da média do item.
+    item_grupos: dict[str, list[list[str]]] = {}
+    for tipo, componentes in ITEM_COLUNAS.items():
+        resolvidos = []
+        for aliases in componentes:
+            cols = _encontrar_colunas_grupo(colunas, aliases)
+            if cols:
+                resolvidos.append(cols)
+            else:
+                warnings.append(
+                    f'Item "{tipo}": nenhuma coluna encontrada pra um dos componentes '
+                    f'(aliases: {aliases}) -- essa parte da média ficará ausente.'
+                )
+        item_grupos[tipo] = resolvidos
 
     col_agradou = _encontrar_coluna(colunas, COL_AGRADOU_ALIASES)
     col_melhorar = _encontrar_coluna(colunas, COL_MELHORAR_ALIASES)
@@ -387,14 +441,17 @@ def melt_raw_export(df: pd.DataFrame, warnings: list[str] | None = None) -> list
         }
 
         algum_item = False
-        for tipo, col in item_col.items():
-            if col is None:
-                continue
-            nota = _num(record.get(col))
-            if nota is None:
-                continue
-            rows.append({**base, "tipo_avaliacao": tipo, "nota": nota})
-            algum_item = True
+        for tipo, componentes in item_grupos.items():
+            for cols in componentes:
+                nota = None
+                for c in cols:
+                    nota = _num(record.get(c))
+                    if nota is not None:
+                        break
+                if nota is None:
+                    continue
+                rows.append({**base, "tipo_avaliacao": tipo, "nota": nota})
+                algum_item = True
 
         if not algum_item:
             # Resposta sem nenhuma nota de item preenchida (ex.: canal

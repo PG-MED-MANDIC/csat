@@ -53,10 +53,14 @@ pipeline só cobre um deles:**
 - **"CSAT por item"** (`DATA_GERAL`, `DATA_ITENS`, `DATA_FEEDBACK`,
   `DATA_TURMAS`) -- é o que este pipeline atualiza. Antes disso existir,
   era atualizado manualmente pelo botão "📂 Atualizar base" da própria
-  página (upload de Excel, `loadNewBase()` em index.html) -- este pipeline
-  é um port fiel dessa mesma lógica JS pra Python (`transform_csat.py`),
-  pra poder rodar sem abrir o navegador. As duas formas continuam
-  funcionando: pode seguir usando o botão da página se preferir.
+  página (upload de Excel, `loadNewBase()` em index.html). **Não é mais um
+  port fiel desse JS** -- `loadNewBase()` só lê 1 pergunta por item e não
+  reconhece a exportação real do Indecx (colunas largas, uma por pergunta,
+  não o formato "linha por item" que a função espera). A fórmula real de
+  `transform_csat.py` foi obtida comparando com a versão de referência
+  mantida na conta antiga (`TCM-18`, 2026-09-15) -- ver "Fórmula dos itens"
+  abaixo. As duas formas de atualizar continuam existindo (pipeline ou
+  botão da página), mas hoje só o pipeline calcula os itens corretamente.
 - **"NPS Pós-Médica"** (`DATA_NPS`, com campos `curso`/`coordenador`) e o
   **feedback completo com nome do aluno** (`DATA_FEEDBACK_FULL`) -- este
   pipeline **nunca toca nesses dois**. Não existe, dentro de `index.html`,
@@ -80,11 +84,12 @@ recalculado no navegador a partir de `DATA_GERAL` ao carregar a página
   classificação NPS (nota ≥9 Promotor, ≥7 Neutro, senão Detrator), unidade
   calculada (`unidade_calc` -- "ONLINE" se a habilitação for Psiquiatria
   Clínica ou Endocrinologia Clínica, senão mapeada de `unidade`), mês/semana
-  da resposta, e as notas dos 6 itens avaliados nessa mesma resposta
-  (`nota_Aula_Online`, `nota_Aula_Prática`, `nota_Infraestrutura`,
-  `nota_Plataforma_Avida`, `nota_Professor`, `nota_Triagem`). Só entram
-  respostas de unidade válida (Brasília/Campinas/Consolação/Online) --
-  "Outros" é descartado.
+  da resposta, `disciplina` (nome do módulo) e as notas dos 6 itens
+  avaliados nessa mesma resposta (`nota_Aula_Online`, `nota_Aula_Prática`,
+  `nota_Infraestrutura`, `nota_Plataforma_Avida`, `nota_Professor`,
+  `nota_Triagem` -- ver "Fórmula dos itens" abaixo). Só entram respostas de
+  unidade válida (Brasília/Campinas/Consolação/Online) -- "Outros" é
+  descartado.
 - **`DATA_ITENS`**: uma linha por avaliação de item (várias por `db-id`) --
   `tipo_avaliacao` + `nota`. Base para médias por item.
 - **`DATA_FEEDBACK`**: um comentário por `db-id` (o primeiro não-vazio) --
@@ -92,11 +97,44 @@ recalculado no navegador a partir de `DATA_GERAL` ao carregar a página
 - **`DATA_TURMAS`**: agregado por unidade+habilitação+turma+mês -- média,
   total de respostas e contagem de promotores/neutros/detratores.
 
+## Fórmula dos itens (achado em 2026-09-15, confirmado em 4 respostas reais)
+
+Cada um dos 6 itens de `DATA_GERAL` vem de 1 ou 2 perguntas "(reviews)" da
+exportação (ver `transform_csat.py: ITEM_COLUNAS`), e quando são 2, o valor
+final é a **média** das duas (`build_data_geral()` soma+conta por tipo):
+
+| Item | Pergunta(s) de origem | Nº perguntas |
+|---|---|---|
+| `nota_Aula_Online` | "satisfação com as aulas online" **+** "aulas online aproximaram... prática clínica" | 2 (média) |
+| `nota_Aula_Prática` | "satisfação com as aulas práticas" **+** "condução da aula prática pelo professor" (singular OU plural, mutuamente exclusivas por linha) | 2 (média) |
+| `nota_Infraestrutura` | "qualidade da infraestrutura dos consultórios" | 1 |
+| `nota_Plataforma_Avida` | "facilidade de uso da plataforma" | 1 |
+| `nota_Professor` | "dinâmica da aula e didática dos professores da aula **online**" | 1 |
+| `nota_Triagem` | "avalia a triagem dos pacientes" | 1 |
+
+Duas coisas contraintuitivas aqui, então documentadas com destaque:
+
+1. **`nota_Professor` não vem da pergunta sobre o professor da aula
+   prática** -- essa pergunta ("condução da aula prática pelo professor")
+   entra no cálculo de `nota_Aula_Prática`. `nota_Professor` vem da
+   pergunta de didática da aula *online*. Contraintuitivo, mas confirmado
+   batendo exatamente com a versão de referência em 4 respostas
+   independentes (24 conferências de campo, todas corretas).
+2. **A pergunta "condução da aula prática pelo professor" tem duas
+   redações mutuamente exclusivas na planilha** (uma ação usa singular
+   "...pelo professor (nome do professor)?", outra usa plural "...pelos
+   professores?") -- nunca as duas preenchidas na mesma resposta. Sem
+   tratar isso como fallback por linha, ~99% das respostas ficam sem essa
+   nota (bug real que existia neste pipeline antes dessa correção: só 21
+   de 2210 respostas tinham a redação singular).
+
 ## O que o pipeline garante
 
-- **Lista de permissão de colunas** (`config.py: REQUIRED_COLUMNS`): só as
-  colunas necessárias são lidas da planilha -- nome/email/telefone de aluno
-  (se a exportação vier a trazer) nunca entram em nenhuma das 4 constantes.
+- **Lista de permissão de colunas**: só as colunas em
+  `transform_csat.py: RAW_COLUMNS_OBRIGATORIAS` + as usadas por
+  `ITEM_COLUNAS`/`COL_AGRADOU_ALIASES`/`COL_MELHORAR_ALIASES` são lidas da
+  planilha -- nome/email/telefone de aluno (presentes na exportação real)
+  nunca entram em nenhuma das 4 constantes.
 - **Regravação cirúrgica** (`render_index.py`): `upsert_all()` substitui só
   as 4 linhas `const DATA_GERAL`/`DATA_ITENS`/`DATA_FEEDBACK`/`DATA_TURMAS`
   -- o resto do arquivo (`DATA_NPS`, `DATA_FEEDBACK_FULL`, `DI_TURMA_MAP`,
