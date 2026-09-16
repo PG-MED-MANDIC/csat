@@ -31,7 +31,7 @@ import pandas as pd
 from config import DADOS_FONTE_DIR, INDEX_HTML_PATH, PIPELINE_DIR
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
-from render_index import read_di_turma_map, upsert_all
+from render_index import read_di_turma_map, upsert_all, upsert_last_update
 from transform_csat import (
     build_data_feedback,
     build_data_geral,
@@ -102,6 +102,7 @@ def main() -> int:
             "DATA_TURMAS": build_data_turmas(data_geral),
         }
         upsert_all(INDEX_HTML_PATH, data)
+        upsert_last_update(INDEX_HTML_PATH, f"{datetime.now():%d/%m/%Y %H:%M}")
     except Exception:
         report.append("  FALHOU: erro ao processar/gravar os dados. Detalhes:")
         report.append(traceback.format_exc())
