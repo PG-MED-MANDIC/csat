@@ -1390,23 +1390,21 @@ function renderCrossAnalise(containerId, unit, filteredData, filteredItens) {
     return;
   }
 
-  // Cross: para cada tema, agrupa comentários por sentimento -- um comentário
-  // pode entrar em mais de 1 tema (mesmo critério do Resumo Executivo).
+  // Cross: cada comentário entra em UM só tema -- o dominante (mais palavras
+  // do dicionário bateram nele; ver `temaDominante` em analyzeComment()) --
+  // pra não repetir o mesmo comentário em 2 cards (ex.: "aulas online" batendo
+  // em Aulas e Aula Online ao mesmo tempo). Diferente do Resumo Executivo/aba
+  // Análise de Comentários, que de propósito contam um comentário em todos os
+  // temas que ele toca -- aqui o objetivo é mostrar exemplos, não repetir.
   const cross = {};
-  TEMA_ORDER.forEach(tema => {
-    const seenText = new Set();
-    const rowsForTema = fbRows.filter(r => {
-      if (!r.temas.includes(tema)) return false;
-      const key = r.feedback.trim();
-      if (seenText.has(key)) return false;
-      seenText.add(key);
-      return true;
-    });
-    cross[tema] = {
-      neg: rowsForTema.filter(r => r.sentiment === 'neg'),
-      neu: rowsForTema.filter(r => r.sentiment === 'neu'),
-      pos: rowsForTema.filter(r => r.sentiment === 'pos'),
-    };
+  TEMA_ORDER.forEach(tema => { cross[tema] = { neg: [], neu: [], pos: [] }; });
+  const seenText = new Set();
+  fbRows.forEach(r => {
+    if (!r.temaDominante || !cross[r.temaDominante]) return;
+    const key = r.feedback.trim();
+    if (seenText.has(key)) return;
+    seenText.add(key);
+    cross[r.temaDominante][r.sentiment].push(r);
   });
 
   const SENT_COLOR = { neg:'#dc2626', neu:'#d97706', pos:'#16a34a' };
@@ -3285,6 +3283,15 @@ Object.entries(TEMA_DICT).forEach(([k,v]) => {
   TEMA_LOOKUP[k.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase()] = v;
 });
 
+// Nº de palavras do dicionário por tema (ex.: "Aulas" tem ~30 palavras
+// genéricas, "Aula Online" só tem "online") -- usado em analyzeComment() pra
+// ponderar o tema dominante de um comentário: uma palavra de um tema com
+// dicionário pequeno (mais específica/rara) pesa mais que uma palavra
+// genérica repetida de um tema com dicionário grande. Sem isso, "Aulas"
+// ganhava quase sempre de temas mais específicos só por ter mais sinônimos.
+const TEMA_DICT_SIZE = {};
+Object.values(TEMA_DICT).forEach(t => { TEMA_DICT_SIZE[t] = (TEMA_DICT_SIZE[t]||0) + 1; });
+
 
 const TEMA_LABEL_MAP = {
   'Organizacao':'Organização','Alimentacao':'Alimentação','Aula Online':'Aula Online',
@@ -3534,15 +3541,36 @@ function analyzeComment(r) {
   const words = normWord(r.feedback)
     .split(/[\s,.!?;:()\-\n\r"\/\\]+/).filter(w => w.length > 2);
   const temaHits = {};
-  words.forEach(w => { if (TEMA_LOOKUP[w]) temaHits[TEMA_LOOKUP[w]] = (temaHits[TEMA_LOOKUP[w]]||0)+1; });
+  const temaWeight = {};
+  const temaFirstPos = {};
+  words.forEach((w, i) => {
+    const t = TEMA_LOOKUP[w];
+    if (!t) return;
+    temaHits[t] = (temaHits[t]||0) + 1;
+    // peso = 1 / tamanho do dicionário do tema -- ver TEMA_DICT_SIZE
+    temaWeight[t] = (temaWeight[t]||0) + 1 / (TEMA_DICT_SIZE[t] || 1);
+    if (temaFirstPos[t] === undefined) temaFirstPos[t] = i;
+  });
   const temas = Object.keys(temaHits);
+  // Tema dominante = maior peso (não maior contagem bruta -- uma palavra de
+  // dicionário pequeno/específico, ex. "online", pesa mais que várias
+  // palavras genéricas repetidas de um dicionário grande, ex. "aula"/"módulo"
+  // em "Aulas"); empate desempatado pela palavra que apareceu primeiro no
+  // texto (o que a pessoa menciona antes tende a ser o assunto principal).
+  // Usado onde um comentário só pode contar em 1 lugar (ver
+  // renderCrossAnalise) -- `temas` (todos os temas tocados) continua
+  // disponível pra quem quiser contar em mais de um (Resumo Executivo / aba
+  // Análise de Comentários).
+  const temaDominante = temas.length
+    ? temas.slice().sort((a,b) => (temaWeight[b]-temaWeight[a]) || (temaFirstPos[a]-temaFirstPos[b]))[0]
+    : null;
   const score = scoreText(r.feedback);
   let sentiment;
   // Nota: 9-10 = Promotor, 7-8 = Neutro, 1-6 = Detrator
   if (r.nota >= 9)      sentiment = score < -3 ? 'neu' : 'pos';
   else if (r.nota <= 6) sentiment = score > 4  ? 'neu' : 'neg';
   else                  sentiment = 'neu'; // 7-8 always neutral
-  return { temas, sentiment, score };
+  return { temas, temaHits, temaDominante, sentiment, score };
 }
 
 function applyFiltersResumo() {
