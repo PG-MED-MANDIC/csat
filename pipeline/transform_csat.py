@@ -1,10 +1,10 @@
 """Transforma a planilha bruta da pesquisa "CSAT por item" (Indecx) nas 4
-constantes que ../index.html usa: DATA_GERAL, DATA_ITENS, DATA_FEEDBACK e
+constantes que ../data.js usa: DATA_GERAL, DATA_ITENS, DATA_FEEDBACK e
 DATA_TURMAS.
 
 build_data_geral/build_data_itens/build_data_feedback/build_data_turmas são
 port fiel, linha por linha, da função loadNewBase() que já existe dentro de
-index.html (JavaScript -- é o que roda hoje quando alguém sobe um Excel
+app.js (JavaScript -- é o que roda hoje quando alguém sobe um Excel
 manualmente pelo botão "Atualizar base" da página) -- elas esperam um
 formato "longo" (uma linha por item avaliado, várias por resposta).
 

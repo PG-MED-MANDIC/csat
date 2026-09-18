@@ -30,6 +30,10 @@ load_dotenv()
 PIPELINE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = PIPELINE_DIR.parent
 INDEX_HTML_PATH = PROJECT_DIR / "index.html"
+# Desde 2026-09-18: index.html foi separado em HTML (index.html) + CSS
+# (style.css) + lógica JS (app.js) + dados JS (data.js) -- o pipeline grava
+# as constantes DATA_X em data.js, não mais dentro do index.html.
+DATA_JS_PATH = PROJECT_DIR / "data.js"
 DADOS_FONTE_DIR = PROJECT_DIR.parent / "dados-fonte"
 
 

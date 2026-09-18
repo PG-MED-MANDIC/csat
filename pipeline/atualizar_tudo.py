@@ -1,6 +1,7 @@
 """Orquestra a atualização do dataset "CSAT por item" do dashboard: obtém a
 planilha da pesquisa no Indecx e regrava DATA_GERAL/DATA_ITENS/
-DATA_FEEDBACK/DATA_TURMAS em ../index.html. Um comando só:
+DATA_FEEDBACK/DATA_TURMAS em ../data.js (index.html só recebe o timestamp de
+"última atualização"). Um comando só:
 
     python pipeline/atualizar_tudo.py
 
@@ -28,7 +29,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from config import DADOS_FONTE_DIR, INDEX_HTML_PATH, PIPELINE_DIR
+from config import DADOS_FONTE_DIR, DATA_JS_PATH, INDEX_HTML_PATH, PIPELINE_DIR
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
 from render_index import read_di_turma_map, upsert_all, upsert_last_update
@@ -92,7 +93,7 @@ def main() -> int:
         df = pd.read_excel(output_path)
         melt_warnings: list[str] = []
         rows = melt_raw_export(df, warnings=melt_warnings)
-        di_turma_map = read_di_turma_map(INDEX_HTML_PATH)
+        di_turma_map = read_di_turma_map(DATA_JS_PATH)
 
         data_geral = build_data_geral(rows, di_turma_map)
         data = {
@@ -101,7 +102,7 @@ def main() -> int:
             "DATA_FEEDBACK": build_data_feedback(rows, di_turma_map),
             "DATA_TURMAS": build_data_turmas(data_geral),
         }
-        upsert_all(INDEX_HTML_PATH, data)
+        upsert_all(DATA_JS_PATH, data)
         upsert_last_update(INDEX_HTML_PATH, f"{datetime.now():%d/%m/%Y %H:%M}")
     except Exception:
         report.append("  FALHOU: erro ao processar/gravar os dados. Detalhes:")
@@ -121,8 +122,8 @@ def main() -> int:
     report.append(
         "\nTudo certo. Próximos passos (revise antes de publicar):\n"
         "  git status\n"
-        "  git diff -- index.html\n"
-        "  git add index.html\n"
+        "  git diff -- data.js\n"
+        "  git add index.html data.js\n"
         '  git commit -m "Atualiza dados do dashboard (CSAT por item)"\n'
         "  git push"
     )

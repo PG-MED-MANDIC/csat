@@ -1,9 +1,16 @@
 # Pipeline de atualização de dados (Python)
 
-Scripts para regenerar 4 das constantes de dados em `../index.html`:
+Scripts para regenerar 4 das constantes de dados em `../data.js`:
 `DATA_GERAL`, `DATA_ITENS`, `DATA_FEEDBACK` e `DATA_TURMAS` -- o dataset
 "CSAT por item", a partir da pesquisa correspondente no Indecx (**mesma
 conta já usada no pipeline do NPS-PACIENTE**, pesquisa diferente).
+
+**Estrutura de arquivos do dashboard (desde 2026-09-18)**: `../index.html`
+(marcação), `../style.css` (estilos), `../app.js` (lógica -- ~150
+funções/16 abas) e `../data.js` (as constantes de dado, incluindo as 4 que
+este pipeline regrava). Antes disso tudo vivia num `index.html` só (5,3 MB);
+a separação não mudou nenhuma lógica, só reposicionou o código nos arquivos
+certos.
 
 ## Instalação
 
@@ -20,7 +27,8 @@ pipeline do NPS-PACIENTE. **Nunca** commite o `.env`.
 
 ## Uso
 
-Um comando só (busca no Indecx + recalcula os 4 arrays + regrava `index.html`):
+Um comando só (busca no Indecx + recalcula os 4 arrays + regrava `data.js`,
+e atualiza só o timestamp em `index.html`):
 
 ```
 python atualizar_tudo.py
@@ -32,11 +40,14 @@ pra sempre ter uma revisão antes de publicar no repositório público:
 
 ```
 git status
-git diff -- index.html
-git add index.html
+git diff -- data.js
+git add index.html data.js
 git commit -m "Atualiza dados do dashboard (CSAT por item)"
 git push
 ```
+
+`style.css`/`app.js` só mudam quando alguém edita o layout ou a lógica do
+dashboard -- não fazem parte da atualização de dados de rotina.
 
 A planilha baixada fica em `../../dados-fonte/export_indecx_csat_AA_MM_DD.xlsx`
 -- pasta compartilhada com os outros pipelines deste workspace (ver
@@ -47,13 +58,13 @@ planilha do dia se ela já existir, em vez de baixar de novo.
 
 ## O que este pipeline NÃO faz
 
-**`index.html` na verdade tem 2 conjuntos de dados independentes, e este
+**O dashboard na verdade tem 2 conjuntos de dados independentes, e este
 pipeline só cobre um deles:**
 
 - **"CSAT por item"** (`DATA_GERAL`, `DATA_ITENS`, `DATA_FEEDBACK`,
   `DATA_TURMAS`) -- é o que este pipeline atualiza. Antes disso existir,
   era atualizado manualmente pelo botão "📂 Atualizar base" da própria
-  página (upload de Excel, `loadNewBase()` em index.html). **Não é mais um
+  página (upload de Excel, `loadNewBase()` em `app.js`). **Não é mais um
   port fiel desse JS** -- `loadNewBase()` só lê 1 pergunta por item e não
   reconhece a exportação real do Indecx (colunas largas, uma por pergunta,
   não o formato "linha por item" que a função espera). A fórmula real de
@@ -63,7 +74,7 @@ pipeline só cobre um deles:**
   botão da página), mas hoje só o pipeline calcula os itens corretamente.
 - **"NPS Pós-Médica"** (`DATA_NPS`, com campos `curso`/`coordenador`) e o
   **feedback completo com nome do aluno** (`DATA_FEEDBACK_FULL`) -- este
-  pipeline **nunca toca nesses dois**. Não existe, dentro de `index.html`,
+  pipeline **nunca toca nesses dois**. Não existe, dentro do dashboard,
   nenhuma lógica que regenere esses dados a partir de uma planilha bruta
   (o botão de upload da página também não mexe neles) -- a pesquisa Indecx
   de origem (`groupId`/`actionId` próprios) ainda não foi identificada.
@@ -78,7 +89,7 @@ cruzamento tema×turma) e o cruzamento comentário×tema por unidade liam de
 09/09/2026, enquanto os números (`DATA_GERAL`/`DATA_ITENS`) eram atualizados
 todo dia por este pipeline. `build_data_feedback()` passou a incluir os campos
 que faltavam (`db_id`/`mes_order`/`mes_label`/`semana_key`/`di_turma`/`ts`) e
-o `index.html` foi repontado pra ler de `DATA_FEEDBACK` nessas seções -- a
+o dashboard foi repontado pra ler de `DATA_FEEDBACK` nessas seções -- a
 classificação por tema (`TEMA_DICT`/`analyzeComment()`) não mudou, só a fonte
 dos comentários. `DATA_FEEDBACK_FULL` continua existindo no arquivo (upload
 manual/"Atualizar base" ainda grava nele) mas não alimenta mais nenhuma tela.
@@ -90,9 +101,9 @@ em relação ao que `DATA_FEEDBACK_FULL` fazia.
 regravada -- é lida (`render_index.py::read_di_turma_map()`) pra montar o
 campo `di_turma`, mas nunca alterada.
 
-`IDX_GERAL` não precisa ser gravado: fica sempre `{}` no arquivo e é
-recalculado no navegador a partir de `DATA_GERAL` ao carregar a página
-(`index.html:742`) -- não é dado persistido.
+`IDX_GERAL` não precisa ser gravado: fica sempre `{}` em `app.js` e é
+recalculado no navegador a partir de `DATA_GERAL` ao carregar a página --
+não é dado persistido.
 
 ## O que cada campo significa
 
@@ -157,8 +168,9 @@ Duas coisas contraintuitivas aqui, então documentadas com destaque:
   nunca entram em nenhuma das 4 constantes.
 - **Regravação cirúrgica** (`render_index.py`): `upsert_all()` substitui só
   as 4 linhas `const DATA_GERAL`/`DATA_ITENS`/`DATA_FEEDBACK`/`DATA_TURMAS`
-  -- o resto do arquivo (`DATA_NPS`, `DATA_FEEDBACK_FULL`, `DI_TURMA_MAP`,
-  HTML, CSS, lógica de gráficos/filtros) não é tocado.
+  dentro de `data.js` -- o resto do arquivo (`DATA_NPS`, `DATA_FEEDBACK_FULL`,
+  `DI_TURMA_MAP`) e os outros três arquivos do dashboard (`index.html`,
+  `style.css`, `app.js`) não são tocados.
 - **Sem automação não supervisionada**: assim como nos outros pipelines
   deste workspace, nada aqui roda sozinho (sem agendador/cron) -- cada
   execução no Indecx traz comentário livre de aluno, então cada execução é
