@@ -98,7 +98,7 @@ def main() -> int:
         data = {
             "DATA_GERAL": data_geral,
             "DATA_ITENS": build_data_itens(rows),
-            "DATA_FEEDBACK": build_data_feedback(rows),
+            "DATA_FEEDBACK": build_data_feedback(rows, di_turma_map),
             "DATA_TURMAS": build_data_turmas(data_geral),
         }
         upsert_all(INDEX_HTML_PATH, data)

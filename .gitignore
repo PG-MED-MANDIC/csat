@@ -1,6 +1,10 @@
 # Segredos -- nunca versionar (credenciais do Indecx)
 pipeline/.env
 
+# Script local com referência a credenciais em arquivo separado (login próprio,
+# fora do pipeline) -- nunca versionar
+cod csat.txt
+
 # Ambiente virtual Python (recriável via pipeline/requirements.txt)
 pipeline/.venv/
 

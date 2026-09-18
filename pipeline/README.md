@@ -67,8 +67,24 @@ pipeline só cobre um deles:**
   nenhuma lógica que regenere esses dados a partir de uma planilha bruta
   (o botão de upload da página também não mexe neles) -- a pesquisa Indecx
   de origem (`groupId`/`actionId` próprios) ainda não foi identificada.
-  Continuam sendo atualizados do jeito que sempre foram, fora deste
-  pipeline, até decidirmos o que fazer com eles.
+  Continuam parados (ver "Achado 2026-09-18" abaixo) até decidirmos o que
+  fazer com eles.
+
+**Achado 2026-09-18 -- `DATA_FEEDBACK_FULL` alimentava toda a análise
+qualitativa e ficava parado entre atualizações manuais.** Até então, o Resumo
+Executivo, a aba "Análise de Comentários" (ranking de temas, sentimento,
+cruzamento tema×turma) e o cruzamento comentário×tema por unidade liam de
+`DATA_FEEDBACK_FULL` -- uma base carregada à mão que ficou sem atualizar desde
+09/09/2026, enquanto os números (`DATA_GERAL`/`DATA_ITENS`) eram atualizados
+todo dia por este pipeline. `build_data_feedback()` passou a incluir os campos
+que faltavam (`db_id`/`mes_order`/`mes_label`/`semana_key`/`di_turma`/`ts`) e
+o `index.html` foi repontado pra ler de `DATA_FEEDBACK` nessas seções -- a
+classificação por tema (`TEMA_DICT`/`analyzeComment()`) não mudou, só a fonte
+dos comentários. `DATA_FEEDBACK_FULL` continua existindo no arquivo (upload
+manual/"Atualizar base" ainda grava nele) mas não alimenta mais nenhuma tela.
+De propósito, `DATA_FEEDBACK` continua **sem** o nome do aluno (mesma lista de
+permissão de sempre) -- então essas seções não mostram mais nome, diferença
+em relação ao que `DATA_FEEDBACK_FULL` fazia.
 
 `DI_TURMA_MAP` (tabela estática código-de-turma → rótulo) também não é
 regravada -- é lida (`render_index.py::read_di_turma_map()`) pra montar o
@@ -93,7 +109,11 @@ recalculado no navegador a partir de `DATA_GERAL` ao carregar a página
 - **`DATA_ITENS`**: uma linha por avaliação de item (várias por `db-id`) --
   `tipo_avaliacao` + `nota`. Base para médias por item.
 - **`DATA_FEEDBACK`**: um comentário por `db-id` (o primeiro não-vazio) --
-  nota geral, unidade, disciplina, data e o texto do comentário.
+  nota geral, unidade, disciplina, data e o texto do comentário, + `db_id`
+  (join com `DATA_GERAL`/`DATA_ITENS`), `mes_order`/`mes_label`/`semana_key`
+  (filtros) e `di_turma`/`ts` (rótulo de turma e ordenação por recência) --
+  usado pelo Resumo Executivo e pela aba Análise de Comentários (ver "Achado
+  2026-09-18" acima). Sem nome de aluno, de propósito.
 - **`DATA_TURMAS`**: agregado por unidade+habilitação+turma+mês -- média,
   total de respostas e contagem de promotores/neutros/detratores.
 

@@ -29,6 +29,14 @@ Só lê as colunas em RAW_COLUMNS_OBRIGATORIAS + ITEM_COLUNAS + comentário --
 nome/email/telefone de aluno (colunas "nome"/"email"/"telefone"/"informe
 seu nome completo (input)"/"informe seu celular (contact)", presentes na
 exportação real) nunca são lidos nem entram nos dados de saída.
+
+DATA_FEEDBACK (2026-09-18): além dos campos de sempre, `build_data_feedback()`
+agora inclui `db_id`/`mes_order`/`mes_label`/`semana_key`/`di_turma`/`ts` --
+index.html usa isso pra alimentar toda a análise qualitativa por tema/palavra-
+chave (Resumo Executivo, aba Análise de Comentários, cruzamento comentário×tema
+por unidade), que antes dependia de `DATA_FEEDBACK_FULL`, uma base carregada à
+mão que ficava parada entre atualizações manuais (ver PROGRESSO.md). Sem `nome`
+de propósito, mesma razão do parágrafo acima.
 """
 from __future__ import annotations
 
@@ -98,6 +106,18 @@ def _to_date(raw) -> date | None:
     if pd.isna(d):
         return None
     return d.date() if hasattr(d, "date") else d
+
+
+def _to_datetime(raw):
+    """Igual a `_to_date`, mas preserva a hora -- usado só pra gerar `ts`
+    (YYYYMMDDHHMMSS numérico), critério de ordenação por recência já usado
+    em várias listagens de comentários do index.html."""
+    if raw is None or (isinstance(raw, float) and math.isnan(raw)):
+        return None
+    dt = pd.to_datetime(raw, errors="coerce", dayfirst=True)
+    if pd.isna(dt):
+        return None
+    return dt
 
 
 def parse_mes(data_resposta) -> int | None:
@@ -250,7 +270,15 @@ def build_data_itens(rows: list[dict]) -> list[dict]:
     return out
 
 
-def build_data_feedback(rows: list[dict]) -> list[dict]:
+def build_data_feedback(rows: list[dict], di_turma_map: dict) -> list[dict]:
+    """Igual a antes, + `db_id`/`mes_order`/`mes_label`/`semana_key`/`di_turma`/`ts`
+    -- campos que faltavam pra index.html poder filtrar/juntar esses comentários
+    com DATA_GERAL/DATA_ITENS (via db-id) e com os filtros de mês/semana/turma,
+    do jeito que já fazia com DATA_FEEDBACK_FULL (a base manual que ficava parada
+    entre atualizações -- ver PROGRESSO.md). `nome` continua de fora de propósito
+    (ver módulo docstring): não expor identificação de aluno na base pública
+    atualizada todo dia.
+    """
     seen: set[str] = set()
     out = []
     for r in rows:
@@ -268,7 +296,10 @@ def build_data_feedback(rows: list[dict]) -> list[dict]:
 
         hab = _str(r.get("habilitacao"))
         d = _to_date(r.get("data_resposta"))
+        dt = _to_datetime(r.get("data_resposta"))
+        mes = parse_mes(r.get("data_resposta"))
         out.append({
+            "db_id": id_,
             "cod": _str(r.get("codturma")),
             "turma": _str(r.get("turma")),
             "hab": hab,
@@ -277,6 +308,11 @@ def build_data_feedback(rows: list[dict]) -> list[dict]:
             "nota": _num(r.get("nota_geral")),
             "disciplina": r.get("nomedisciplina") or "",
             "feedback": feedback_str,
+            "mes_order": mes,
+            "mes_label": MES_LABEL.get(mes, ""),
+            "semana_key": compute_semana_key(d),
+            "di_turma": di_turma_label(hab, r.get("codturma"), di_turma_map),
+            "ts": int(dt.strftime("%Y%m%d%H%M%S")) if dt else None,
         })
     return out
 
