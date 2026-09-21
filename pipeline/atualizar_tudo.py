@@ -26,6 +26,7 @@ import sys
 import traceback
 from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -33,6 +34,11 @@ from config import DADOS_FONTE_DIR, DATA_JS_PATH, INDEX_HTML_PATH, PIPELINE_DIR
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
 from render_index import read_di_turma_map, upsert_all, upsert_last_update
+
+# Desde a migração pro GitHub Actions (2026-09-21), o runner roda em UTC --
+# sem fuso explícito, "última atualização" saía 3h atrasada (hora de
+# Brasília não observa horário de verão desde 2019, sempre UTC-3).
+FUSO_BR = ZoneInfo("America/Sao_Paulo")
 from transform_csat import (
     build_data_feedback,
     build_data_geral,
@@ -103,7 +109,7 @@ def main() -> int:
             "DATA_TURMAS": build_data_turmas(data_geral),
         }
         upsert_all(DATA_JS_PATH, data)
-        upsert_last_update(INDEX_HTML_PATH, f"{datetime.now():%d/%m/%Y %H:%M}")
+        upsert_last_update(INDEX_HTML_PATH, f"{datetime.now(FUSO_BR):%d/%m/%Y %H:%M}")
     except Exception:
         report.append("  FALHOU: erro ao processar/gravar os dados. Detalhes:")
         report.append(traceback.format_exc())
