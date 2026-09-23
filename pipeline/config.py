@@ -34,6 +34,10 @@ INDEX_HTML_PATH = PROJECT_DIR / "index.html"
 # (style.css) + lógica JS (app.js) + dados JS (data.js) -- o pipeline grava
 # as constantes DATA_X em data.js, não mais dentro do index.html.
 DATA_JS_PATH = PROJECT_DIR / "data.js"
+# Desde 2026-09-23: data.js (tem nome de aluno em DATA_FEEDBACK_FULL) nunca
+# é versionado -- o repositório só guarda data.enc, criptografado com a senha
+# do dashboard (ver protecao.py / ../protecao.js).
+DATA_ENC_PATH = PROJECT_DIR / "data.enc"
 DADOS_FONTE_DIR = PROJECT_DIR.parent / "dados-fonte"
 
 

@@ -577,7 +577,7 @@
   <div id="resumo-content"></div>
 </div>
 
-<script src="data.js"></script>
-<script src="app.js"></script>
+<script src="protecao.js"></script>
+<script>Protecao.iniciar({ arquivo: 'data.enc', modo: 'script', depois: ['app.js'], titulo: 'CSAT Pós Med', chaveSessao: 'csat_chave_v1' });</script>
 </body>
 </html>

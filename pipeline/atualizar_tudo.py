@@ -10,6 +10,9 @@ baixada (evita gerar uma segunda exportação sem querer, se rodar duas vezes
 no mesmo dia). Se quiser forçar um download novo, apague a planilha do dia
 em dados-fonte/ antes de rodar.
 
+Lê e grava data.enc (criptografado, ver protecao.py) -- data.js aberto só
+existe localmente/no runner, nunca é versionado (tem nome de aluno).
+
 NÃO mexe no dataset "NPS Pós-Médica" (DATA_NPS/DATA_FEEDBACK_FULL) -- ver
 README.md > "O que este pipeline NÃO faz". Esse continua sendo atualizado
 manualmente, fora deste pipeline, até decidirmos o que fazer com ele.
@@ -30,9 +33,10 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
-from config import DADOS_FONTE_DIR, DATA_JS_PATH, INDEX_HTML_PATH, PIPELINE_DIR
+from config import DADOS_FONTE_DIR, DATA_ENC_PATH, DATA_JS_PATH, INDEX_HTML_PATH, PIPELINE_DIR
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
+from protecao import cifrar_arquivo, decifrar_arquivo, obter_senha
 from render_index import read_di_turma_map, upsert_all, upsert_last_update
 
 # Desde a migração pro GitHub Actions (2026-09-21), o runner roda em UTC --
@@ -65,6 +69,19 @@ def _planilha_de_hoje() -> Path | None:
 
 def main() -> int:
     report: list[str] = []
+
+    # O repositório só tem data.enc -- decifra antes de mexer e cifra de novo
+    # no fim. Senha: env CSAT_SENHA (secret do Actions) ou digitada.
+    try:
+        senha = obter_senha()
+        if DATA_ENC_PATH.exists():
+            decifrar_arquivo(DATA_ENC_PATH, DATA_JS_PATH, senha)
+        elif not DATA_JS_PATH.exists():
+            raise RuntimeError(f"nem {DATA_ENC_PATH.name} nem {DATA_JS_PATH.name} encontrados")
+    except Exception as e:
+        report.append(f"FALHOU ao decifrar data.enc (senha errada ou ausente?): {type(e).__name__} {e}")
+        _log(report)
+        return 1
 
     report.append("PASSO 1/2 -- obter a planilha da pesquisa CSAT por item no Indecx")
     existing = _planilha_de_hoje()
@@ -109,6 +126,7 @@ def main() -> int:
             "DATA_TURMAS": build_data_turmas(data_geral),
         }
         upsert_all(DATA_JS_PATH, data)
+        cifrar_arquivo(DATA_JS_PATH, DATA_ENC_PATH, senha)
         upsert_last_update(INDEX_HTML_PATH, f"{datetime.now(FUSO_BR):%d/%m/%Y %H:%M}")
     except Exception:
         report.append("  FALHOU: erro ao processar/gravar os dados. Detalhes:")
@@ -128,8 +146,7 @@ def main() -> int:
     report.append(
         "\nTudo certo. Próximos passos (revise antes de publicar):\n"
         "  git status\n"
-        "  git diff -- data.js\n"
-        "  git add index.html data.js\n"
+        "  git add index.html data.enc\n"
         '  git commit -m "Atualiza dados do dashboard (CSAT por item)"\n'
         "  git push"
     )

@@ -176,3 +176,18 @@ Duas coisas contraintuitivas aqui, então documentadas com destaque:
   execução no Indecx traz comentário livre de aluno, então cada execução é
   uma decisão de quem está rodando. O arquivo em `dados-fonte/` nunca é
   versionado nem hospedado.
+
+
+## Proteção por senha (desde 23/09/2026)
+
+`data.js` tem nome de aluno (`DATA_FEEDBACK_FULL`) e **não é mais versionado**. O repositório só tem
+`data.enc`, que é o `data.js` cifrado (AES-256-GCM, chave PBKDF2-SHA256) com a senha do dashboard. O
+navegador pede a senha e decifra (`../protecao.js`), e o pipeline decifra no início e cifra de novo no
+fim (`protecao.py`).
+
+- Senha: variável `CSAT_SENHA`, que é secret do repo `automacao-dashboard`. Rodando na mão, o script
+  pede a senha no terminal. É a mesma senha do dashboard da coordenação (`coord_mandic`).
+- Precisa editar `data.js` na mão? Use `python pipeline/protecao.py decifrar`, edite, depois
+  `python pipeline/protecao.py cifrar` e faça commit **só do `data.enc`**.
+- O histórico de commits anterior a 23/09 ainda tem `data.js` aberto. Foi decisão consciente não
+  reescrever o histórico.

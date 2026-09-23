@@ -1,6 +1,9 @@
 # Segredos -- nunca versionar (credenciais do Indecx)
 pipeline/.env
 
+# Dados abertos (nome de aluno) -- só data.enc, criptografado, vai pro repositório
+data.js
+
 # Script local com referência a credenciais em arquivo separado (login próprio,
 # fora do pipeline) -- nunca versionar
 cod csat.txt
