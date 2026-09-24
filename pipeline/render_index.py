@@ -73,3 +73,27 @@ def upsert_all(path: Path, data: dict[str, list[dict]]) -> None:
         lines = _upsert_const(lines, name, data[name])
 
     path.write_text("".join(lines), encoding="utf-8", newline="")
+
+
+def upsert_engajamento(path: Path, rows: list[dict]) -> None:
+    """Regrava (ou cria, na primeira execução) DATA_ENGAJAMENTO -- dataset de
+    adesão vindo do datalake via automacao-dashboard/atualizar_engajamento.py
+    (roda fora deste repo por questão de governança: a query cita nomes de
+    tabela internos do datalake, nunca pode entrar num repo público -- ver
+    memória do projeto, [[engajamento_csat_pipeline]]).
+
+    Diferente de upsert_all()/NAMES: se a constante ainda não existir (a
+    primeira vez que este script roda), faz *append* dela no fim do arquivo
+    em vez de abortar como _upsert_const() normalmente faria -- autoinicializa
+    sem precisar decifrar/editar/cifrar data.enc manualmente antes. Da segunda
+    execução em diante, cai no caminho normal de regravar a linha existente.
+    """
+    lines = path.read_text(encoding="utf-8", newline="").splitlines(keepends=True)
+    try:
+        lines = _upsert_const(lines, "DATA_ENGAJAMENTO", rows)
+    except RuntimeError:
+        if lines and not lines[-1].endswith(("\n", "\r")):
+            lines[-1] += "\n"
+        new_value = json.dumps(rows, ensure_ascii=False)
+        lines.append(f"const DATA_ENGAJAMENTO = {new_value};\n")
+    path.write_text("".join(lines), encoding="utf-8", newline="")

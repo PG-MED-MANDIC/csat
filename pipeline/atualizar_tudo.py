@@ -25,6 +25,7 @@ dado identificável de aluno.
 """
 from __future__ import annotations
 
+import json
 import sys
 import traceback
 from datetime import date, datetime
@@ -37,7 +38,7 @@ from config import DADOS_FONTE_DIR, DATA_ENC_PATH, DATA_JS_PATH, INDEX_HTML_PATH
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
 from protecao import cifrar_arquivo, decifrar_arquivo, obter_senha
-from render_index import read_di_turma_map, upsert_all, upsert_last_update
+from render_index import read_di_turma_map, upsert_all, upsert_engajamento, upsert_last_update
 
 # Desde a migração pro GitHub Actions (2026-09-21), o runner roda em UTC --
 # sem fuso explícito, "última atualização" saía 3h atrasada (hora de
@@ -126,6 +127,22 @@ def main() -> int:
             "DATA_TURMAS": build_data_turmas(data_geral),
         }
         upsert_all(DATA_JS_PATH, data)
+
+        # Engajamento (adesão) do datalake -- publicado por um script LOCAL,
+        # fora deste repo público (automacao-dashboard/atualizar_engajamento.py,
+        # ver [[engajamento_csat_pipeline]] na memória do projeto: a query cita
+        # nome de tabela interno do datalake, não pode entrar aqui). Só lê o
+        # JSON já agregado, nunca a query. Se o arquivo não existir (script
+        # local não rodou ainda hoje, ex. PC desligado), não falha -- mantém o
+        # DATA_ENGAJAMENTO que já estava, igual o checklist-captacao.
+        engajamento_path = DADOS_FONTE_DIR / "engajamento_mensal.json"
+        if engajamento_path.exists():
+            engajamento_rows = json.loads(engajamento_path.read_text(encoding="utf-8"))
+            upsert_engajamento(DATA_JS_PATH, engajamento_rows)
+            report.append(f"  Engajamento: {len(engajamento_rows)} mês(es) (de {engajamento_path.name}).")
+        else:
+            report.append("  Engajamento: engajamento_mensal.json não encontrado -- mantendo o que já estava.")
+
         cifrar_arquivo(DATA_JS_PATH, DATA_ENC_PATH, senha)
         upsert_last_update(INDEX_HTML_PATH, f"{datetime.now(FUSO_BR):%d/%m/%Y %H:%M}")
     except Exception:
