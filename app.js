@@ -150,6 +150,108 @@ function monthlyLine(canvasId, units, filteredData) {
   });
 }
 
+// ============ ENGAJAMENTO (adesao as pesquisas) ============
+// DATA_ENGAJAMENTO vem de fora do pipeline deste repo -- publicado por um
+// script local que consulta o datalake (BigQuery) e sobe só o agregado
+// mês/convites/respondidos/% (ver automacao-dashboard/atualizar_engajamento.py
+// e memória do projeto, [[engajamento_csat_pipeline]]). Não é filtrável pelos
+// mesmos filtros de unidade/mês da tela (a query de origem ainda não abre
+// esse detalhe) -- mostra sempre a série completa.
+function engajamentoCombo(canvasId) {
+  destroyChart(canvasId);
+  if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO.length) return;
+  const ctx = document.getElementById(canvasId);
+  if (!ctx) return;
+
+  const labels = DATA_ENGAJAMENTO.map(r => r.mes_label);
+  const convites = DATA_ENGAJAMENTO.map(r => r.conv);
+  const pct = DATA_ENGAJAMENTO.map(r => r.pct);
+  const pctValidos = pct.filter(v => v != null);
+  const maxY = pctValidos.length ? Math.max(...pctValidos) * 1.4 : 40;
+
+  const engajamentoLabelsPlugin = {
+    id: 'engajamentoLabelsPlugin_' + canvasId,
+    afterDatasetsDraw(chart) {
+      const c = chart.ctx;
+      c.save();
+      // Convites: rótulo minimalista ACIMA da barra (cinza, discreto) -- pedido
+      // explícito do usuário, diferente do "n=" em branco DENTRO da barra usado
+      // em evolucaoGeralCombo.
+      const barMeta = chart.getDatasetMeta(0);
+      barMeta.data.forEach((el, i) => {
+        if (convites[i] == null) return;
+        c.font = '600 10px Segoe UI, sans-serif';
+        c.fillStyle = '#9ca3af';
+        c.textAlign = 'center';
+        c.fillText(convites[i], el.x, el.y - 8);
+      });
+      const lineMeta = chart.getDatasetMeta(1);
+      lineMeta.data.forEach((el, i) => {
+        if (pct[i] == null) return;
+        c.font = '700 12px Segoe UI, sans-serif';
+        c.fillStyle = '#16a34a';
+        c.textAlign = 'center';
+        c.fillText(pct[i].toFixed(1) + '%', el.x, el.y - 14);
+      });
+      c.restore();
+    }
+  };
+
+  CHARTS[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar', label: 'Convites enviados', data: convites,
+          backgroundColor: '#9ca3af4d', borderRadius: 4, borderSkipped: false,
+          yAxisID: 'y1', order: 2, maxBarThickness: 46
+        },
+        {
+          type: 'line', label: '% Adesão', data: pct,
+          borderColor: '#16a34a', backgroundColor: '#16a34a',
+          pointBackgroundColor: '#16a34a', pointBorderColor: '#fff', pointBorderWidth: 1.5,
+          borderWidth: 3, pointRadius: 5, pointHoverRadius: 7,
+          tension: .3, spanGaps: false, yAxisID: 'y', order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, clip: false,
+      layout: { padding: { top: 26, bottom: 6 } },
+      plugins: {
+        legend: {
+          position: 'top', align: 'end',
+          labels: { font: { size: 11 }, usePointStyle: true, pointStyle: 'circle', boxWidth: 10, boxHeight: 10 }
+        },
+        tooltip: {
+          callbacks: {
+            label: c => c.dataset.type === 'bar' ? `Convites enviados: ${c.parsed.y}` : `Adesão: ${c.parsed.y != null ? c.parsed.y.toFixed(1) : '-'}%`
+          }
+        }
+      },
+      scales: {
+        y: {
+          position: 'left', suggestedMin: 0, suggestedMax: maxY,
+          ticks: { callback: v => v.toFixed(0) + '%' },
+          grid: { color: '#f0f0f0' },
+          title: { display: true, text: '% adesão', color: '#6b7280', font: { size: 10 } }
+        },
+        y1: {
+          position: 'right', suggestedMin: 0,
+          grid: { drawOnChartArea: false },
+          title: { display: true, text: 'convites', color: '#6b7280', font: { size: 10 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11 } }
+        }
+      }
+    },
+    plugins: [engajamentoLabelsPlugin]
+  });
+}
+
 // ============ EVOLUCAO GERAL (media + respostas) ============
 function evolucaoGeralCombo(canvasId, filteredData) {
   destroyChart(canvasId);
@@ -1637,6 +1739,7 @@ function renderAll() {
 
   if (activeTab === 'geral') {
     safeCall(()=>monthlyLine('ch-monthly', UNITS, fd), 'monthlyLine');
+    safeCall(()=>engajamentoCombo('ch-engajamento'), 'engajamentoCombo');
     safeCall(()=>evolucaoGeralCombo('ch-evolucao-geral', fd), 'evolucaoGeralCombo');
     safeCall(()=>evolucaoSemanalCombo('ch-evolucao-semanal', fd), 'evolucaoSemanalCombo');
     safeCall(()=>weeklyLineAllUnits('ch-weekly-units', fd), 'weeklyLineAllUnits');
