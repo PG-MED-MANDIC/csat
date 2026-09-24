@@ -137,9 +137,12 @@ def main() -> int:
         # DATA_ENGAJAMENTO que já estava, igual o checklist-captacao.
         engajamento_path = DADOS_FONTE_DIR / "engajamento_mensal.json"
         if engajamento_path.exists():
-            engajamento_rows = json.loads(engajamento_path.read_text(encoding="utf-8"))
-            upsert_engajamento(DATA_JS_PATH, engajamento_rows)
-            report.append(f"  Engajamento: {len(engajamento_rows)} mês(es) (de {engajamento_path.name}).")
+            engajamento_dados = json.loads(engajamento_path.read_text(encoding="utf-8"))
+            upsert_engajamento(DATA_JS_PATH, engajamento_dados)
+            n_mes = len(engajamento_dados.get("mensal", []))
+            n_unid = len(engajamento_dados.get("por_unidade", []))
+            n_hab = len(engajamento_dados.get("por_habilitacao", []))
+            report.append(f"  Engajamento: {n_mes} mês(es), {n_unid} unidade(s), {n_hab} habilitação(ões) (de {engajamento_path.name}).")
         else:
             report.append("  Engajamento: engajamento_mensal.json não encontrado -- mantendo o que já estava.")
 

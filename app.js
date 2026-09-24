@@ -153,19 +153,21 @@ function monthlyLine(canvasId, units, filteredData) {
 // ============ ENGAJAMENTO (adesao as pesquisas) ============
 // DATA_ENGAJAMENTO vem de fora do pipeline deste repo -- publicado por um
 // script local que consulta o datalake (BigQuery) e sobe só o agregado
-// mês/convites/respondidos/% (ver automacao-dashboard/atualizar_engajamento.py
-// e memória do projeto, [[engajamento_csat_pipeline]]). Não é filtrável pelos
-// mesmos filtros de unidade/mês da tela (a query de origem ainda não abre
-// esse detalhe) -- mostra sempre a série completa.
+// {mensal, por_unidade, por_habilitacao} (ver
+// automacao-dashboard/atualizar_engajamento.py e memória do projeto,
+// [[engajamento_csat_pipeline]]). Não é filtrável pelos mesmos filtros de
+// unidade/mês da tela (a query de origem ainda não abre esse detalhe) --
+// mostra sempre a série completa.
 function engajamentoCombo(canvasId) {
   destroyChart(canvasId);
-  if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO.length) return;
+  if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.mensal?.length) return;
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
 
-  const labels = DATA_ENGAJAMENTO.map(r => r.mes_label);
-  const convites = DATA_ENGAJAMENTO.map(r => r.conv);
-  const pct = DATA_ENGAJAMENTO.map(r => r.pct);
+  const mensal = DATA_ENGAJAMENTO.mensal;
+  const labels = mensal.map(r => r.mes_label);
+  const convites = mensal.map(r => r.conv);
+  const pct = mensal.map(r => r.pct);
   const pctValidos = pct.filter(v => v != null);
   const maxY = pctValidos.length ? Math.max(...pctValidos) * 1.4 : 40;
 
@@ -174,18 +176,27 @@ function engajamentoCombo(canvasId) {
     afterDatasetsDraw(chart) {
       const c = chart.ctx;
       c.save();
+      const barMeta = chart.getDatasetMeta(0);
+      const lineMeta = chart.getDatasetMeta(1);
       // Convites: rótulo minimalista ACIMA da barra (cinza, discreto) -- pedido
       // explícito do usuário, diferente do "n=" em branco DENTRO da barra usado
-      // em evolucaoGeralCombo.
-      const barMeta = chart.getDatasetMeta(0);
+      // em evolucaoGeralCombo. Quando o topo da barra fica perto do ponto da
+      // linha de % (meses com convites altos + adesão alta ao mesmo tempo),
+      // empilha o número de convites acima do rótulo de % em vez de deixar
+      // os dois textos se sobreporem.
       barMeta.data.forEach((el, i) => {
         if (convites[i] == null) return;
+        let y = el.y - 8;
+        const lineEl = lineMeta.data[i];
+        if (lineEl && pct[i] != null) {
+          const pctLabelY = lineEl.y - 14;
+          if (Math.abs(y - pctLabelY) < 18) y = pctLabelY - 16;
+        }
         c.font = '600 10px Segoe UI, sans-serif';
         c.fillStyle = '#9ca3af';
         c.textAlign = 'center';
-        c.fillText(convites[i], el.x, el.y - 8);
+        c.fillText(convites[i], el.x, y);
       });
-      const lineMeta = chart.getDatasetMeta(1);
       lineMeta.data.forEach((el, i) => {
         if (pct[i] == null) return;
         c.font = '700 12px Segoe UI, sans-serif';
@@ -218,11 +229,11 @@ function engajamentoCombo(canvasId) {
     },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
-      layout: { padding: { top: 26, bottom: 6 } },
+      layout: { padding: { top: 34, bottom: 6 } },
       plugins: {
         legend: {
           position: 'top', align: 'end',
-          labels: { font: { size: 11 }, usePointStyle: true, pointStyle: 'circle', boxWidth: 10, boxHeight: 10 }
+          labels: { font: { size: 11 }, usePointStyle: true, pointStyle: 'circle', boxWidth: 10, boxHeight: 10, padding: 16 }
         },
         tooltip: {
           callbacks: {
@@ -250,6 +261,63 @@ function engajamentoCombo(canvasId) {
     },
     plugins: [engajamentoLabelsPlugin]
   });
+}
+
+function _engajamentoRankBar(canvasId, rows, labelKey, colorFn) {
+  destroyChart(canvasId);
+  const ctx = document.getElementById(canvasId);
+  if (!ctx || !rows || !rows.length) return;
+  const labels = rows.map(r => r[labelKey]);
+  const pct = rows.map(r => r.pct);
+
+  const rankLabelsPlugin = {
+    id: 'engajamentoRankLabelsPlugin_' + canvasId,
+    afterDatasetsDraw(chart) {
+      const c = chart.ctx;
+      c.save();
+      c.font = '700 11px Segoe UI, sans-serif';
+      c.fillStyle = '#1a1a2e';
+      c.textAlign = 'left';
+      chart.getDatasetMeta(0).data.forEach((el, i) => {
+        c.fillText(pct[i].toFixed(1) + '%', el.x + 6, el.y + 4);
+      });
+      c.restore();
+    }
+  };
+
+  CHARTS[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: pct, backgroundColor: rows.map(colorFn), borderRadius: 4 }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 40 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `Adesão: ${c.parsed.x.toFixed(1)}%` } }
+      },
+      scales: {
+        x: { suggestedMax: Math.max(...pct) * 1.25, grid: { color: '#f0f0f0' }, ticks: { callback: v => v.toFixed(0) + '%' } },
+        y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    },
+    plugins: [rankLabelsPlugin]
+  });
+}
+
+// Adesão por unidade -- reaproveita UCOL (mesma paleta das outras abas).
+function engajamentoUnidadeBar(canvasId) {
+  if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.por_unidade) return;
+  _engajamentoRankBar(canvasId, DATA_ENGAJAMENTO.por_unidade, 'unidade', r => UCOL[r.unidade] || '#94a3b8');
+}
+
+// Adesão por habilitação (top 10) -- reaproveita HAB_COLORS (mesma paleta
+// usada no ranking por módulo/turma).
+function engajamentoHabBar(canvasId) {
+  if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.por_habilitacao) return;
+  _engajamentoRankBar(canvasId, DATA_ENGAJAMENTO.por_habilitacao, 'habilitacao', (_, i) => HAB_COLORS[i % HAB_COLORS.length]);
 }
 
 // ============ EVOLUCAO GERAL (media + respostas) ============
@@ -1740,6 +1808,8 @@ function renderAll() {
   if (activeTab === 'geral') {
     safeCall(()=>monthlyLine('ch-monthly', UNITS, fd), 'monthlyLine');
     safeCall(()=>engajamentoCombo('ch-engajamento'), 'engajamentoCombo');
+    safeCall(()=>engajamentoUnidadeBar('ch-engajamento-unidade'), 'engajamentoUnidadeBar');
+    safeCall(()=>engajamentoHabBar('ch-engajamento-hab'), 'engajamentoHabBar');
     safeCall(()=>evolucaoGeralCombo('ch-evolucao-geral', fd), 'evolucaoGeralCombo');
     safeCall(()=>evolucaoSemanalCombo('ch-evolucao-semanal', fd), 'evolucaoSemanalCombo');
     safeCall(()=>weeklyLineAllUnits('ch-weekly-units', fd), 'weeklyLineAllUnits');
