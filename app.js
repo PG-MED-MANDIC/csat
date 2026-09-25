@@ -2900,7 +2900,7 @@ function quoteCard(r, type, opts) {
       <span style="font-size:11px;font-weight:700;color:var(--navy)">${r.hab}${unidade}</span>
       ${turmaBadge}
       ${nota}
-      <span style="font-size:10px;color:var(--muted);margin-left:auto">${r.mes_label||''}</span>
+      <span style="font-size:10px;color:var(--muted);margin-left:auto">${r.data||r.mes_label||''}</span>
     </div>
     <div id="${uid}-t" style="white-space:pre-line">${hasMais ? r.feedback.slice(0,200)+'…' : r.feedback}</div>
     ${hasMais ? `<button id="${uid}-b" data-open="0"
@@ -3487,7 +3487,7 @@ function triagemQuoteCard(r) {
       <span style="font-size:10px;color:var(--muted)">— ${r.unidade||''}</span>
       <span style="font-size:10px;background:#e5e7eb;padding:1px 7px;border-radius:8px;font-weight:600">Geral ${notaG}</span>
       <span style="font-size:10px;background:#e5e7eb;padding:1px 7px;border-radius:8px;font-weight:600">Triagem ${notaT}</span>
-      <span style="font-size:10px;color:var(--muted);margin-left:auto">${r.mes_label||''}</span>
+      <span style="font-size:10px;color:var(--muted);margin-left:auto">${r.data||r.mes_label||''}</span>
     </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${badges.join('')}</div>
     <div id="${uid}-t" style="white-space:pre-line">${hasMais ? r.feedback.slice(0,220)+'…' : r.feedback}</div>
