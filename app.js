@@ -704,6 +704,21 @@ function renderCards(containerId, unit, filteredData, isOnline) {
   `;
 }
 
+// Engajamento (adesão) do mês mais recente pra UMA unidade -- alimenta o
+// selo no canto superior direito de cada card de renderGeralCards()
+// (pedido do usuário, 2026-09-25). "ONLINE" (chave usada em UNITS/card) mapeia
+// pra "Disciplina Online" (chave usada em DATA_ENGAJAMENTO.mensal_por_unidade
+// -- nomes diferentes de propósito). Sempre pega o ÚLTIMO item da série (já
+// vem ordenada por mês ascendente) -- é o "mês atual" na prática, porque o
+// pipeline de engajamento roda todo dia e o mês corrente só fecha quando vira
+// o mês seguinte.
+function engajamentoUnidadeAtual(unidadeCard) {
+  if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.mensal_por_unidade) return null;
+  const chave = unidadeCard === 'ONLINE' ? 'Disciplina Online' : unidadeCard;
+  const serie = DATA_ENGAJAMENTO.mensal_por_unidade[chave];
+  return serie && serie.length ? serie[serie.length - 1] : null;
+}
+
 function renderGeralCards(filteredData) {
   const container = document.getElementById('cards-geral');
   const activeUnits = UNITS.filter(u=>filteredData.some(r=>r.unidade_calc===u));
@@ -715,8 +730,16 @@ function renderGeralCards(filteredData) {
     const neut = data.filter(r=>r.classificacao==='Neutro').length;
     const detr = data.filter(r=>r.classificacao==='Detrator').length;
     const isOnline = u==='ONLINE';
+    const eng = engajamentoUnidadeAtual(u);
+    const engHtml = eng ? `
+        <div title="Engajamento (adesão às pesquisas) de ${eng.mes_label}: ${eng.resp} de ${eng.conv} convites"
+             style="position:absolute;top:12px;right:14px;text-align:right;line-height:1.1">
+          <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Engajamento ${eng.mes_label}</div>
+          <div style="font-size:16px;font-weight:800;color:#16a34a">${eng.pct!=null ? eng.pct.toFixed(1)+'%' : '—'}</div>
+        </div>` : '';
     return `
       <div class="card${isOnline?' c-online':''}" style="min-width:150px">
+        ${engHtml}
         <div class="card-lbl">${u}</div>
         <div class="card-val">${fmt(media)}</div>
         <div class="card-sub">${total} respostas</div>
