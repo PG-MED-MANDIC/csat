@@ -42,9 +42,13 @@ mão que ficava parada entre atualizações manuais (ver PROGRESSO.md).
 nome antes de existir este pipeline automatizado e o usuário pediu que
 voltasse a aparecer, mesmo ciente de que este repositório é público e o
 `data.enc` é regravado todo dia (risco explicado e aceito na conversa que
-motivou esta mudança). Lido da coluna "nome" (canal automático) ou "informe
-seu nome completo (input)" (canal QROCDE) -- nunca da coluna "nomedisciplina",
-que é outra coisa.
+motivou esta mudança). Lido de "nome" (canal automático) OU "informe seu
+nome completo (input)" (canal QROCDE) -- nunca da coluna "nomedisciplina",
+que é outra coisa. **Por LINHA, não por planilha inteira** (`_montar_nome()`,
+mesmo padrão do fallback de comentário/QROCDE acima): cada resposta só
+preenche uma das duas colunas, nunca as duas -- escolher uma coluna só pra
+exportação inteira (bug da 1ª versão, corrigido no mesmo dia) deixava ~58%
+dos comentários sem nome.
 """
 from __future__ import annotations
 
@@ -410,15 +414,13 @@ def _encontrar_coluna(colunas, aliases: list[str]) -> str | None:
     return None
 
 
-def _encontrar_coluna_nome(colunas) -> str | None:
-    """Coluna do nome do aluno -- "nome" exato (canal automático) ou a
-    pergunta de texto livre "informe seu nome completo (input)" (canal
-    QROCDE). Não usa `_encontrar_coluna()` (substring) pra "nome" sozinho
-    porque bateria primeiro em "nomedisciplina"."""
+def _encontrar_coluna_nome_exata(colunas) -> str | None:
+    """Coluna "nome" exata (canal automático) -- não usa `_encontrar_coluna()`
+    (substring) porque bateria primeiro em "nomedisciplina"."""
     for col in colunas:
         if _sem_acento(col).lower().strip() == "nome":
             return col
-    return _encontrar_coluna(colunas, ["informe seu nome completo"])
+    return None
 
 
 def _encontrar_colunas_grupo(colunas, aliases: list[str]) -> list[str]:
@@ -446,6 +448,20 @@ def _montar_comentario(row: dict, col_agradou: str | None, col_melhorar: str | N
     if melhorar:
         partes.append(f"O que poderia melhorar: {melhorar}")
     return "\n".join(partes)
+
+
+def _montar_nome(row: dict, col_nome: str | None, col_nome_qrocde: str | None) -> str:
+    """Nome do aluno -- por LINHA, não por planilha inteira: achado real
+    (2026-09-25) rodando contra a exportação de verdade -- cada resposta só
+    preenche UMA das duas colunas (nunca as duas), dependendo do canal
+    (automático usa "nome", QROCDE usa "informe seu nome completo (input)").
+    Escolher uma coluna só pra planilha inteira (como fazia antes) deixava
+    ~58% dos comentários sem nome -- mesmo padrão de fallback por linha já
+    usado em `_montar_comentario()` pra feedback/QROCDE."""
+    nome = _str(row.get(col_nome)) if col_nome else ""
+    if nome:
+        return nome
+    return _str(row.get(col_nome_qrocde)) if col_nome_qrocde else ""
 
 
 def melt_raw_export(df: pd.DataFrame, warnings: list[str] | None = None) -> list[dict]:
@@ -480,7 +496,8 @@ def melt_raw_export(df: pd.DataFrame, warnings: list[str] | None = None) -> list
 
     col_agradou = _encontrar_coluna(colunas, COL_AGRADOU_ALIASES)
     col_melhorar = _encontrar_coluna(colunas, COL_MELHORAR_ALIASES)
-    col_nome = _encontrar_coluna_nome(colunas)
+    col_nome = _encontrar_coluna_nome_exata(colunas)
+    col_nome_qrocde = _encontrar_coluna(colunas, ["informe seu nome completo"])
     codturma_col = "codturma" if "codturma" in df.columns else None
 
     rows: list[dict] = []
@@ -494,7 +511,7 @@ def melt_raw_export(df: pd.DataFrame, warnings: list[str] | None = None) -> list
             "codturma": record.get(codturma_col) if codturma_col else None,
             "turma": None,  # não existe na exportação real -- DATA_FEEDBACK.turma sai vazio
             "nomedisciplina": record.get("nomedisciplina"),
-            "nome_aluno": record.get(col_nome) if col_nome else None,
+            "nome_aluno": _montar_nome(record, col_nome, col_nome_qrocde),
             "feedback": _montar_comentario(record, col_agradou, col_melhorar),
         }
 
