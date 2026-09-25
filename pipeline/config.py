@@ -62,7 +62,9 @@ def load_indecx_config() -> IndecxConfig:
 
 # Lista de colunas lidas da exportação real (ver transform_csat.py:
 # RAW_COLUMNS_OBRIGATORIAS, ITEM_COLUNAS, COL_AGRADOU_ALIASES,
-# COL_MELHORAR_ALIASES) -- nome/email/telefone do aluno (presentes na
-# exportação real) nunca são lidos nem entram em DATA_GERAL/DATA_ITENS/
-# DATA_FEEDBACK/DATA_TURMAS. Proposital: mesma filosofia de lista de
-# permissão do pipeline do NPS-PACIENTE (ver pipeline/config.py de lá).
+# COL_MELHORAR_ALIASES) -- email/telefone do aluno (presentes na exportação
+# real) nunca são lidos nem entram em DATA_GERAL/DATA_ITENS/DATA_FEEDBACK/
+# DATA_TURMAS. `nome` é a exceção, lido e incluído em DATA_FEEDBACK desde
+# 2026-09-25 por decisão explícita do usuário (a aba Comentários mostrava
+# nome antes deste pipeline existir) -- risco de expor nome de aluno num
+# repositório público, atualizado todo dia, foi avisado e aceito.

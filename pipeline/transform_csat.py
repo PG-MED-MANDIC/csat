@@ -25,18 +25,26 @@ Também usa o mesmo fallback de comentário que aquele projeto usa
 disso -- sem esse fallback, DATA_FEEDBACK sairia praticamente vazio pra
 respostas desse canal.
 
-Só lê as colunas em RAW_COLUMNS_OBRIGATORIAS + ITEM_COLUNAS + comentário --
-nome/email/telefone de aluno (colunas "nome"/"email"/"telefone"/"informe
-seu nome completo (input)"/"informe seu celular (contact)", presentes na
-exportação real) nunca são lidos nem entram nos dados de saída.
+Só lê as colunas em RAW_COLUMNS_OBRIGATORIAS + ITEM_COLUNAS + comentário +
+nome -- email/telefone de aluno (colunas "email"/"telefone"/"informe seu
+celular (contact)", presentes na exportação real) continuam nunca sendo
+lidos nem entrando nos dados de saída.
 
 DATA_FEEDBACK (2026-09-18): além dos campos de sempre, `build_data_feedback()`
 agora inclui `db_id`/`mes_order`/`mes_label`/`semana_key`/`di_turma`/`ts` --
 index.html usa isso pra alimentar toda a análise qualitativa por tema/palavra-
 chave (Resumo Executivo, aba Análise de Comentários, cruzamento comentário×tema
 por unidade), que antes dependia de `DATA_FEEDBACK_FULL`, uma base carregada à
-mão que ficava parada entre atualizações manuais (ver PROGRESSO.md). Sem `nome`
-de propósito, mesma razão do parágrafo acima.
+mão que ficava parada entre atualizações manuais (ver PROGRESSO.md).
+
+`nome` do aluno (2026-09-25, decisão explícita do usuário -- reverte a decisão
+"de propósito" de excluir nome que valia até aqui): a aba Comentários mostrava
+nome antes de existir este pipeline automatizado e o usuário pediu que
+voltasse a aparecer, mesmo ciente de que este repositório é público e o
+`data.enc` é regravado todo dia (risco explicado e aceito na conversa que
+motivou esta mudança). Lido da coluna "nome" (canal automático) ou "informe
+seu nome completo (input)" (canal QROCDE) -- nunca da coluna "nomedisciplina",
+que é outra coisa.
 """
 from __future__ import annotations
 
@@ -307,6 +315,7 @@ def build_data_feedback(rows: list[dict], di_turma_map: dict) -> list[dict]:
             "unidade": map_unidade(hab, r.get("unidade")),
             "nota": _num(r.get("nota_geral")),
             "disciplina": r.get("nomedisciplina") or "",
+            "nome": _str(r.get("nome_aluno")),
             "feedback": feedback_str,
             "mes_order": mes,
             "mes_label": MES_LABEL.get(mes, ""),
@@ -401,6 +410,17 @@ def _encontrar_coluna(colunas, aliases: list[str]) -> str | None:
     return None
 
 
+def _encontrar_coluna_nome(colunas) -> str | None:
+    """Coluna do nome do aluno -- "nome" exato (canal automático) ou a
+    pergunta de texto livre "informe seu nome completo (input)" (canal
+    QROCDE). Não usa `_encontrar_coluna()` (substring) pra "nome" sozinho
+    porque bateria primeiro em "nomedisciplina"."""
+    for col in colunas:
+        if _sem_acento(col).lower().strip() == "nome":
+            return col
+    return _encontrar_coluna(colunas, ["informe seu nome completo"])
+
+
 def _encontrar_colunas_grupo(colunas, aliases: list[str]) -> list[str]:
     """Acha TODAS as colunas que batem com qualquer alias do grupo (mantém
     a ordem em que aparecem na planilha) -- usado quando duas redações da
@@ -460,6 +480,7 @@ def melt_raw_export(df: pd.DataFrame, warnings: list[str] | None = None) -> list
 
     col_agradou = _encontrar_coluna(colunas, COL_AGRADOU_ALIASES)
     col_melhorar = _encontrar_coluna(colunas, COL_MELHORAR_ALIASES)
+    col_nome = _encontrar_coluna_nome(colunas)
     codturma_col = "codturma" if "codturma" in df.columns else None
 
     rows: list[dict] = []
@@ -473,6 +494,7 @@ def melt_raw_export(df: pd.DataFrame, warnings: list[str] | None = None) -> list
             "codturma": record.get(codturma_col) if codturma_col else None,
             "turma": None,  # não existe na exportação real -- DATA_FEEDBACK.turma sai vazio
             "nomedisciplina": record.get("nomedisciplina"),
+            "nome_aluno": record.get(col_nome) if col_nome else None,
             "feedback": _montar_comentario(record, col_agradou, col_melhorar),
         }
 
