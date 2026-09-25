@@ -308,9 +308,16 @@ function _engajamentoRankBar(canvasId, rows, labelKey, colorFn) {
 }
 
 // Adesão por unidade -- reaproveita UCOL (mesma paleta das outras abas).
+// "Disciplina Online" (2026-09-25) = convites com habilitação "Psiquiatria
+// Clínica"/"Endocrinologia Clínica" (mesmo ONLINE_HABS de transform_csat.py)
+// -- cadastrados fisicamente em Campinas/Consolação, mas contados à parte
+// aqui porque são turmas de modalidade online. Usa a cor de UCOL.ONLINE
+// (já usada na aba "🖥️ Online" do dashboard) já que a chave do grupo vem
+// como texto legível ("Disciplina Online"), não "ONLINE".
 function engajamentoUnidadeBar(canvasId) {
   if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.por_unidade) return;
-  _engajamentoRankBar(canvasId, DATA_ENGAJAMENTO.por_unidade, 'unidade', r => UCOL[r.unidade] || '#94a3b8');
+  _engajamentoRankBar(canvasId, DATA_ENGAJAMENTO.por_unidade, 'unidade',
+    r => UCOL[r.unidade] || (r.unidade === 'Disciplina Online' ? UCOL.ONLINE : '#94a3b8'));
 }
 
 // Adesão por habilitação (top 10) -- reaproveita HAB_COLORS (mesma paleta
