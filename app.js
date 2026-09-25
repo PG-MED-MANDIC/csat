@@ -153,18 +153,67 @@ function monthlyLine(canvasId, units, filteredData) {
 // ============ ENGAJAMENTO (adesao as pesquisas) ============
 // DATA_ENGAJAMENTO vem de fora do pipeline deste repo -- publicado por um
 // script local que consulta o datalake (BigQuery) e sobe só o agregado
-// {mensal, por_unidade, por_habilitacao} (ver
+// {mensal, por_unidade, por_habilitacao, mensal_por_unidade} (ver
 // automacao-dashboard/atualizar_engajamento.py e memória do projeto,
 // [[engajamento_csat_pipeline]]). Não é filtrável pelos mesmos filtros de
-// unidade/mês da tela (a query de origem ainda não abre esse detalhe) --
-// mostra sempre a série completa.
+// unidade/mês do topo da página (a query de origem ainda não abre detalhe
+// suficiente pra isso) -- tem um filtro PRÓPRIO só pro gráfico principal
+// (ver engajamentoFiltroUnidade/populateEngajamentoFiltro abaixo, pedido do
+// usuário 2026-09-25). Os 2 gráficos de baixo (por unidade/habilitação)
+// continuam mostrando sempre todas as unidades -- é a função deles.
+
+let engajamentoFiltroUnidade = ''; // '' = Todos
+
+// Ordem fixa de exibição + rótulo amigável pro filtro -- "Disciplina Online"
+// vira só "Online" no botão (mais curto), mas continua usando a cor de
+// UCOL.ONLINE (mesmo critério de engajamentoUnidadeBar).
+const ENGAJAMENTO_UNIDADE_ORDEM = ['BRASÍLIA', 'CAMPINAS', 'CONSOLAÇÃO', 'Disciplina Online'];
+const ENGAJAMENTO_UNIDADE_LABEL = { 'BRASÍLIA': 'Brasília', 'CAMPINAS': 'Campinas', 'CONSOLAÇÃO': 'Consolação', 'Disciplina Online': 'Online' };
+
+function engajamentoUnidadeCor(u) {
+  return UCOL[u] || (u === 'Disciplina Online' ? UCOL.ONLINE : '#94a3b8');
+}
+
+function setEngajamentoFiltro(u) {
+  engajamentoFiltroUnidade = u;
+  populateEngajamentoFiltro();
+  engajamentoCombo('ch-engajamento');
+}
+
+function populateEngajamentoFiltro() {
+  const wrap = document.getElementById('engajamento-filtro-unidade');
+  if (!wrap || typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.mensal_por_unidade) return;
+  const disponiveis = ENGAJAMENTO_UNIDADE_ORDEM.filter(u => DATA_ENGAJAMENTO.mensal_por_unidade[u]);
+  const opcoes = ['', ...disponiveis];
+  wrap.innerHTML = opcoes.map(u => {
+    const label = u === '' ? 'Todos' : ENGAJAMENTO_UNIDADE_LABEL[u] || u;
+    const ativo = engajamentoFiltroUnidade === u;
+    const cor = u === '' ? '#1A2459' : engajamentoUnidadeCor(u);
+    return `<button onclick="setEngajamentoFiltro('${u}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;cursor:pointer;
+      border:1px solid ${cor};background:${ativo ? cor : '#fff'};color:${ativo ? '#fff' : cor}">${label}</button>`;
+  }).join('');
+}
+
 function engajamentoCombo(canvasId) {
   destroyChart(canvasId);
   if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.mensal?.length) return;
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
 
-  const mensal = DATA_ENGAJAMENTO.mensal;
+  populateEngajamentoFiltro();
+
+  // Filtro por unidade: reindexa a série da unidade escolhida pelos MESMOS
+  // meses de DATA_ENGAJAMENTO.mensal (preenchendo com 0/null onde a unidade
+  // não teve convite naquele mês) -- mantém o eixo X estável ao trocar de
+  // filtro, em vez de encolher/esticar o gráfico.
+  let mensal = DATA_ENGAJAMENTO.mensal;
+  if (engajamentoFiltroUnidade) {
+    const serieUnidade = DATA_ENGAJAMENTO.mensal_por_unidade?.[engajamentoFiltroUnidade] || [];
+    const porMes = {};
+    serieUnidade.forEach(r => { porMes[r.mes] = r; });
+    mensal = DATA_ENGAJAMENTO.mensal.map(base => porMes[base.mes] || { mes: base.mes, mes_label: base.mes_label, conv: 0, resp: 0, pct: null });
+  }
+
   const labels = mensal.map(r => r.mes_label);
   const convites = mensal.map(r => r.conv);
   const pct = mensal.map(r => r.pct);
