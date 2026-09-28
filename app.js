@@ -18,7 +18,7 @@ const F = { unidade:'', ano:'', mes:[], hab:'', diturma:'', itens:[], semana:'' 
 // ============ POPULATE FILTER DROPDOWNS ============
 function populateFilters() {
   // Clear existing options (keep first "Todos")
-  ['f-hab','f-diturma'].forEach(id => {
+  ['f-hab'].forEach(id => {
     const sel = document.getElementById(id);
     while (sel.options.length > 1) sel.remove(1);
   });
@@ -41,9 +41,20 @@ function populateFilters() {
   const hSel = document.getElementById('f-hab');
   habs.forEach(h=>{ const o=document.createElement('option'); o.value=h; o.textContent=h; hSel.appendChild(o); });
 
-  const dts = [...new Set(DATA_GERAL.map(r=>r.di_turma))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
+  updateDiTurmaOptions();
+}
+
+// Reconstroi as opcoes do filtro "Dia&Turma" restritas a habilitacao selecionada (F.hab),
+// preservando a turma escolhida se ela ainda pertencer a essa habilitacao.
+function updateDiTurmaOptions() {
   const dtSel = document.getElementById('f-diturma');
-  dts.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; dtSel.appendChild(o); });
+  if (!dtSel) return;
+  while (dtSel.options.length > 1) dtSel.remove(1);
+  const pool = F.hab ? DATA_GERAL.filter(r => r.habilitacao === F.hab) : DATA_GERAL;
+  const dts = [...new Set(pool.map(r => r.di_turma))].sort((a,b) => a.localeCompare(b,'pt-BR',{numeric:true}));
+  dts.forEach(d => { const o = document.createElement('option'); o.value = d; o.textContent = d; dtSel.appendChild(o); });
+  if (!dts.includes(F.diturma)) F.diturma = '';
+  dtSel.value = F.diturma;
 }
 
 // ============ FILTER GERAL DATA ============
@@ -2065,7 +2076,7 @@ document.querySelectorAll('.icheck input').forEach(cb => {
 // Fix filter key mapping
 document.getElementById('f-unidade').addEventListener('change',e=>{F.unidade=e.target.value;renderAll();});
 document.getElementById('f-ano').addEventListener('change',e=>{F.ano=e.target.value;renderAll();});
-document.getElementById('f-hab').addEventListener('change',e=>{F.hab=e.target.value;renderAll();});
+document.getElementById('f-hab').addEventListener('change',e=>{F.hab=e.target.value;updateDiTurmaOptions();renderAll();});
 document.getElementById('f-diturma').addEventListener('change',e=>{F.diturma=e.target.value;renderAll();});
 
 
@@ -2135,6 +2146,7 @@ function resetFilters() {
   document.querySelectorAll('.icheck input').forEach(cb=>{ cb.checked=false; cb.closest('label').classList.remove('active'); });
   F.unidade=''; F.ano=''; F.mes=[]; F.hab=''; F.diturma=''; F.itens=[];
   resetMesDropdown();
+  updateDiTurmaOptions();
   renderAll();
 }
 

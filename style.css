@@ -5,6 +5,10 @@
   --good:#16a34a; --warn:#d97706; --bad:#dc2626;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
+/* Reserva sempre o espaco da barra de rolagem vertical: sem isso, filtrar pra um
+   recorte com menos conteudo remove a barra e a pagina inteira (inclusive os
+   filtros do topo) desloca alguns pixels pra direita, dando impressao de "quebra". */
+html{overflow-y:scroll;}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
 
 /* HEADER */
@@ -26,6 +30,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .fg label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
 .fg select{padding:5px 8px;border:1px solid var(--border);border-radius:4px;font-size:13px;color:var(--text);background:#fff;cursor:pointer;min-width:90px;}
 .fg select:focus{outline:2px solid var(--blue);}
+/* Largura fixa: o texto das opcoes muda (ex: Dia&Turma filtrado por Habilitacao) e sem isso
+   a caixa mudava de tamanho, empurrando os outros filtros e "quebrando" a barra. */
+#f-hab{width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#f-diturma{width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .fsep{width:1px;height:26px;background:var(--border);}
 .fg-itens{display:flex;align-items:center;gap:8px;}
 .fg-itens label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
