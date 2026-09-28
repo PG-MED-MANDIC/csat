@@ -389,6 +389,32 @@ function evolucaoGeralCombo(canvasId, filteredData) {
   const totais = mesFiltered.map(m => filteredData.filter(r=>r.mes_label===m.l).length);
   const medias = mesFiltered.map((m,i) => totais[i] ? avg(filteredData.filter(r=>r.mes_label===m.l).map(r=>r.nota_geral)) : null);
 
+  // Engajamento (adesão) sobreposto (2026-09-25) -- NÃO usa o `pct` pronto de
+  // DATA_ENGAJAMENTO.mensal: numerador = respostas do DATA_GERAL (mesma
+  // contagem da barra acima, já filtrada por F.unidade/F.hab/etc via
+  // filteredData), denominador = convites do datalake. Escolhe a série de
+  // convites mais específica pros filtros ativos no topo (ver
+  // [[engajamento_csat_pipeline]]): habilitação > unidade > total geral.
+  // Filtrar unidade E habilitação ao mesmo tempo prioriza a série por
+  // habilitação -- não existe quebra cruzada mês×unidade×habilitação.
+  let engajamentoPct = null;
+  if (typeof DATA_ENGAJAMENTO !== 'undefined' && DATA_ENGAJAMENTO?.mensal?.length) {
+    let serieConv = DATA_ENGAJAMENTO.mensal;
+    if (F.hab && DATA_ENGAJAMENTO.mensal_por_habilitacao?.[F.hab]) {
+      serieConv = DATA_ENGAJAMENTO.mensal_por_habilitacao[F.hab];
+    } else if (F.unidade && DATA_ENGAJAMENTO.mensal_por_unidade?.[F.unidade]) {
+      serieConv = DATA_ENGAJAMENTO.mensal_por_unidade[F.unidade];
+    }
+    const convPorMes = {};
+    serieConv.forEach(r => { convPorMes[r.mes_label] = r.conv; });
+    engajamentoPct = mesFiltered.map((m, i) => {
+      const conv = convPorMes[m.l];
+      return conv ? (totais[i] / conv * 100) : null;
+    });
+  }
+  const engajamentoValidos = engajamentoPct ? engajamentoPct.filter(v => v != null) : [];
+  const maxEngajamento = engajamentoValidos.length ? Math.max(...engajamentoValidos) * 1.4 : 100;
+
   const ctx = document.getElementById(canvasId);
   if (!ctx) return;
 
@@ -415,29 +441,50 @@ function evolucaoGeralCombo(canvasId, filteredData) {
         c.textAlign = 'center';
         c.fillText(medias[i].toFixed(2), el.x, el.y - 14);
       });
+      if (engajamentoPct) {
+        const engMeta = chart.getDatasetMeta(2);
+        engMeta.data.forEach((el, i) => {
+          if (engajamentoPct[i] == null) return;
+          let y = el.y - 14;
+          const notaEl = lineMeta.data[i];
+          if (notaEl && medias[i] != null && Math.abs(y - (notaEl.y - 14)) < 18) y -= 16;
+          c.font = '700 12px Segoe UI, sans-serif';
+          c.fillStyle = '#16a34a';
+          c.textAlign = 'center';
+          c.fillText(engajamentoPct[i].toFixed(1) + '%', el.x, y);
+        });
+      }
       c.restore();
     }
   };
 
+  const datasets = [
+    {
+      type: 'bar', label: 'Respostas', data: totais,
+      backgroundColor: '#01559Bcc', borderRadius: 4, borderSkipped: false,
+      yAxisID: 'y1', order: 2, maxBarThickness: 46
+    },
+    {
+      type: 'line', label: 'Nota média', data: medias,
+      borderColor: '#F5C518', backgroundColor: '#F5C518',
+      pointBackgroundColor: '#F5C518', pointBorderColor: '#1A2459', pointBorderWidth: 1.5,
+      borderWidth: 3, pointRadius: 5, pointHoverRadius: 7,
+      tension: .3, spanGaps: false, yAxisID: 'y', order: 1
+    }
+  ];
+  if (engajamentoPct) {
+    datasets.push({
+      type: 'line', label: 'Engajamento', data: engajamentoPct,
+      borderColor: '#16a34a', backgroundColor: '#16a34a',
+      pointBackgroundColor: '#16a34a', pointBorderColor: '#fff', pointBorderWidth: 1.5,
+      borderWidth: 3, pointRadius: 5, pointHoverRadius: 7,
+      tension: .3, spanGaps: false, yAxisID: 'y2', order: 0
+    });
+  }
+
   CHARTS[canvasId] = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        {
-          type: 'bar', label: 'Respostas', data: totais,
-          backgroundColor: '#01559Bcc', borderRadius: 4, borderSkipped: false,
-          yAxisID: 'y1', order: 2, maxBarThickness: 46
-        },
-        {
-          type: 'line', label: 'Nota média', data: medias,
-          borderColor: '#F5C518', backgroundColor: '#F5C518',
-          pointBackgroundColor: '#F5C518', pointBorderColor: '#1A2459', pointBorderWidth: 1.5,
-          borderWidth: 3, pointRadius: 5, pointHoverRadius: 7,
-          tension: .3, spanGaps: false, yAxisID: 'y', order: 1
-        }
-      ]
-    },
+    data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
       layout: { padding: { top: 26, bottom: 6 } },
@@ -448,7 +495,9 @@ function evolucaoGeralCombo(canvasId, filteredData) {
         },
         tooltip: {
           callbacks: {
-            label: c => c.dataset.type === 'bar' ? `Respostas: ${c.parsed.y}` : `Nota média: ${c.parsed.y?.toFixed(2) ?? '-'}`
+            label: c => c.dataset.type === 'bar' ? `Respostas: ${c.parsed.y}`
+              : c.dataset.label === 'Engajamento' ? `Engajamento: ${c.parsed.y != null ? c.parsed.y.toFixed(1) : '-'}%`
+              : `Nota média: ${c.parsed.y?.toFixed(2) ?? '-'}`
           }
         }
       },
@@ -463,6 +512,9 @@ function evolucaoGeralCombo(canvasId, filteredData) {
           position: 'right', suggestedMin: 0,
           grid: { drawOnChartArea: false },
           title: { display: true, text: 'respostas', color: '#6b7280', font: { size: 10 } }
+        },
+        y2: {
+          display: false, position: 'right', min: 0, suggestedMax: maxEngajamento
         },
         x: {
           grid: { display: false },
