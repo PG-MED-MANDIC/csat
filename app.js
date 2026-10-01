@@ -400,14 +400,12 @@ function evolucaoGeralCombo(canvasId, filteredData) {
   const totais = mesFiltered.map(m => filteredData.filter(r=>r.mes_label===m.l).length);
   const medias = mesFiltered.map((m,i) => totais[i] ? avg(filteredData.filter(r=>r.mes_label===m.l).map(r=>r.nota_geral)) : null);
 
-  // Engajamento (adesão) sobreposto (2026-09-25) -- NÃO usa o `pct` pronto de
-  // DATA_ENGAJAMENTO.mensal: numerador = respostas do DATA_GERAL (mesma
-  // contagem da barra acima, já filtrada por F.unidade/F.hab/etc via
-  // filteredData), denominador = convites do datalake. Escolhe a série de
-  // convites mais específica pros filtros ativos no topo (ver
-  // [[engajamento_csat_pipeline]]): habilitação > unidade > total geral.
-  // Filtrar unidade E habilitação ao mesmo tempo prioriza a série por
-  // habilitação -- não existe quebra cruzada mês×unidade×habilitação.
+  // Engajamento (adesão) sobreposto -- usa o MESMO pct da seção "Engajamento"
+  // (datalake: respondidos ÷ convites enviados no mês), pra os dois números
+  // sempre baterem (decisão do usuário, 01/10/2026). Antes usava as respostas
+  // do DATA_GERAL (por mês da resposta) ÷ convites, o que inflava o % com
+  // respostas atrasadas de convites de meses anteriores. Série mais específica
+  // pros filtros do topo: habilitação > unidade > total geral.
   let engajamentoPct = null;
   if (typeof DATA_ENGAJAMENTO !== 'undefined' && DATA_ENGAJAMENTO?.mensal?.length) {
     let serieConv = DATA_ENGAJAMENTO.mensal;
@@ -416,12 +414,9 @@ function evolucaoGeralCombo(canvasId, filteredData) {
     } else if (F.unidade && DATA_ENGAJAMENTO.mensal_por_unidade?.[F.unidade]) {
       serieConv = DATA_ENGAJAMENTO.mensal_por_unidade[F.unidade];
     }
-    const convPorMes = {};
-    serieConv.forEach(r => { convPorMes[r.mes_label] = r.conv; });
-    engajamentoPct = mesFiltered.map((m, i) => {
-      const conv = convPorMes[m.l];
-      return conv ? (totais[i] / conv * 100) : null;
-    });
+    const pctPorMes = {};
+    serieConv.forEach(r => { pctPorMes[r.mes_label] = r.pct; });
+    engajamentoPct = mesFiltered.map(m => pctPorMes[m.l] ?? null);
   }
   const engajamentoValidos = engajamentoPct ? engajamentoPct.filter(v => v != null) : [];
   const maxEngajamento = engajamentoValidos.length ? Math.max(...engajamentoValidos) * 1.4 : 100;
