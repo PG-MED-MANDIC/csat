@@ -627,15 +627,15 @@ img,canvas{max-width:100%;}
     <h3 style="margin:0 0 4px">🎯 Fato · Causa · Ação · Resultado</h3>
     <p style="font-size:11px;color:var(--muted);margin:0 0 10px;line-height:1.6">
       <b>Fato</b> e <b>Causa</b> são calculados automaticamente a partir dos comentários (análise lexical por palavras-chave). <b>Ação</b> e <b>Resultado</b> são digitados abaixo e
-      <b>não ficam salvos</b> — vão apenas para o PDF. Esta aba tem filtros próprios e não usa a barra de filtros do topo.
+      <b>não ficam salvos</b> — vão apenas para o PDF. Esta aba é <b>por mês</b>: todos os blocos usam só os comentários do mês escolhido (começa no mais recente), para você comparar um mês com o outro. Tem filtros próprios e não usa a barra de filtros do topo.
     </p>
     <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
       <div class="fg"><label>Unidade</label><select id="fcar-f-unidade" onchange="fcarSet('unidade',this.value)"><option value="">Todas</option></select></div>
       <div class="fg"><label>Curso</label><select id="fcar-f-curso" onchange="fcarSet('curso',this.value)"><option value="">Todos</option></select></div>
-      <div class="fg"><label>Mês</label><select id="fcar-f-mes" onchange="fcarSet('mes',this.value)"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Mês</label><select id="fcar-f-mes" onchange="fcarSet('mes',this.value)"></select></div>
       <div class="fg"><label>Comentários</label>
         <select id="fcar-f-base" onchange="fcarSet('base',this.value)">
-          <option value="neg">Somente negativos</option><option value="negneu">Negativos e neutros</option><option value="all">Todos</option>
+          <option value="neg">Somente negativos</option><option value="pos">Somente positivos</option>
         </select></div>
       <button class="btn-reset" onclick="fcarLimpar()">Limpar filtros</button>
     </div>
@@ -643,26 +643,21 @@ img,canvas{max-width:100%;}
   </div>
 
   <div class="cbox full" style="margin-bottom:14px">
-    <h3 style="margin:0 0 4px">1 · Fato — principais problemas do período</h3>
-    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Comentários por tema (um comentário pode contar em mais de um). Clique numa barra para ver a causa daquele tema.</p>
-    <div class="fcar-grid">
-      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Temas mais citados no recorte</div><div class="cwrap" style="height:300px"><canvas id="fcar-fato-chart"></canvas></div></div>
-      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Evolução mensal dos 5 principais temas (ignora o filtro de mês)</div><div class="cwrap" style="height:300px"><canvas id="fcar-evol-chart"></canvas></div></div>
+    <h3 style="margin:0 0 4px">1 · Fato — o que mais aparece nos comentários do mês</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Cada linha mostra quantos comentários do mês citam o tema (ex.: "8 de 9 comentários"); a barra é só a proporção visual. Embaixo, o número do mês anterior para comparar. Um comentário pode citar mais de um tema, então as % não somam 100. Clique numa linha para ver a causa daquele tema.</p>
+    <div class="fcar-stack">
+      <div><div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Quais temas mais aparecem nos comentários?</div><div id="fcar-fato-box"></div></div>
+      <div><div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">O que aconteceu dentro do mês, semana a semana?</div><div id="fcar-sem-chip" style="margin-bottom:8px"></div><div class="cwrap" style="height:440px"><canvas id="fcar-evol-chart"></canvas></div><div id="fcar-evol-vazio" class="fcar-vazio" style="display:none">Sem dados para mostrar a evolução.</div><div id="fcar-evol-leg"></div><div style="font-size:10.5px;color:var(--muted);margin-top:4px">Mostra os mesmos 5 primeiros temas do ranking acima, por semana do mês escolhido. Se o ranking mudar, as linhas mudam junto. Este gráfico sempre mostra o mês inteiro, mesmo com uma semana escolhida.</div></div>
     </div>
   </div>
 
   <div class="cbox full" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-      <h3 style="margin:0">2 · Causa — o que mais se repete nos comentários</h3>
+      <h3 style="margin:0">2 · Causa — o que os comentários realmente dizem</h3>
       <div class="fg"><label>Tema</label><select id="fcar-tema-sel" onchange="fcarSet('tema',this.value)"></select></div>
     </div>
-    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Palavras e expressões citadas em 2 ou mais comentários do tema (indício de causa, não conclusão — confirme lendo os comentários).</p>
-    <div class="fcar-grid">
-      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Palavras mais repetidas</div>
-        <div class="cwrap" style="height:300px"><canvas id="fcar-causa-chart"></canvas></div>
-        <div id="fcar-causa-vazio" style="display:none;color:var(--muted);font-size:12px">Nenhuma palavra se repete 2 vezes ou mais neste recorte.</div></div>
-      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Expressões recorrentes</div><div id="fcar-expr"></div></div>
-    </div>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Comentários reais do tema escolhido (clique numa linha do ranking acima ou use o seletor). Os que mais citam o tema aparecem primeiro. Dê atenção ao que se repete entre eles: é o indício da causa.</p>
+    <div id="fcar-coment-box"></div>
   </div>
 
   <div class="cbox full">
@@ -687,6 +682,6 @@ img,canvas{max-width:100%;}
 </div>
 
 <script src="protecao.js"></script>
-<script>Protecao.iniciar({ arquivo: 'data.enc', modo: 'script', depois: ['app.js', 'fcar.js'], titulo: 'CSAT Pós Med', chaveSessao: 'csat_chave_v1' });</script>
+<script>Protecao.iniciar({ arquivo: 'data.enc', modo: 'script', depois: ['app.js?v=20261005', 'fcar.js?v=20261005'], titulo: 'CSAT Pós Med', chaveSessao: 'csat_chave_v1' });</script>
 </body>
 </html>

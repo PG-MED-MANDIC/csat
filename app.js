@@ -2024,6 +2024,8 @@ function renderAll() {
     safeCall(()=>renderAnaliseComentariosTab(fd), 'renderAnaliseComentariosTab');
   } else if (activeTab === 'consolidado') {
     safeCall(()=>renderConsolidadoTab(), 'renderConsolidadoTab');
+  } else if (activeTab === 'fcar') {
+    safeCall(()=>renderFcarTab(), 'renderFcarTab');
   } else if (activeTab === 'nps') {
     safeCall(()=>renderNpsTab(), 'renderNpsTab');
   } else if (activeTab === 'resumo') {
