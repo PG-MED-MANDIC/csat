@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSAT Pós Med — São Leopoldo Mandic</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css">
+<style id="responsivo-local">
+/* ===== RESPONSIVO (copia local) ===== */
+img,canvas{max-width:100%;}
+.card,.cbox{min-width:0;}
+.tabs-nav{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+.tab-btn{white-space:nowrap;}
+.cbox,.card{overflow-x:auto;}
+@media (max-width:1100px){
+  [style*="grid-template-columns:1.15fr 1fr"],[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;}
+}
+@media (max-width:768px){
+  .header{padding:12px 16px;flex-wrap:wrap;gap:10px;}
+  .header-left{gap:10px;flex-wrap:wrap;}
+  .header-title h1{font-size:17px;}
+  .header-badges{flex-wrap:wrap;}
+  .filters-bar{padding:10px 16px;gap:10px;}
+  .fg{flex:1 1 150px;flex-direction:column;align-items:stretch;gap:4px;}
+  .fg select,.ms-btn,#f-hab,#f-diturma{width:100%!important;min-width:0;}
+  .fsep{display:none;}
+  .btn-reset{margin-left:0;flex:1 1 100%;}
+  .tabs-nav{padding:0 8px;}
+  .tab-btn{padding:11px 13px;font-size:12px;}
+  .tab-content{padding:14px 16px;}
+  .cards-row{gap:10px;}
+  .card{min-width:140px;flex:1 1 140px;}
+  .cbox,.cbox[style]{min-width:0!important;flex:1 1 100%!important;padding:14px;}
+  .ms-dropdown{max-width:calc(100vw - 32px);}
+  [style*="min-width:380px"],[style*="min-width:340px"],[style*="min-width:330px"],[style*="min-width:320px"]{min-width:0!important;}
+  .cons-hm thead th.lbl{min-width:140px;}
+  [style*="grid-template-columns:repeat(auto-fill,minmax(320px"]{grid-template-columns:1fr!important;}
+}
+@media (max-width:480px){
+  .card{flex:1 1 100%;}
+  .header-title span{font-size:10px;}
+}
+</style>
+</head>
+<body>
+
+<a href="https://pg-med-mandic.github.io/Hub/" style="position:fixed;left:14px;bottom:14px;z-index:9999;display:flex;align-items:center;gap:6px;background:#1A2459;color:#F5C518;font-size:12px;font-weight:bold;padding:8px 14px;border-radius:999px;text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.25)">← Hub</a>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-box">
+      <span class="logo-top">São Leopoldo</span>
+      <span class="logo-main">MANDIC</span>
+    </div>
+    <div style="width:2px;height:36px;background:rgba(255,255,255,.3)"></div>
+    <div class="header-title">
+      <h1>CSAT PÓS MED</h1>
+      <span>Satisfação Geral · set/2025 – set/2026</span>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+    <div class="header-badges">
+      <span class="badge badge-blue">Pós-graduação Medicina</span>
+      <span class="badge badge-gold">Diretoria de Produto Nacional</span>
+    </div>
+    <div id="last-update" style="font-size:10px;color:rgba(255,255,255,.55)">01/10/2026 08:55</div>
+  </div>
+</div>
+
+<div class="filters-bar">
+  <div class="fg"><label>Unidade</label>
+    <select id="f-unidade"><option value="">Todos</option>
+      <option>BRASÍLIA</option><option>CAMPINAS</option><option>CONSOLAÇÃO</option><option>ONLINE</option>
+    </select>
+  </div>
+  <div class="fsep"></div>
+  <div class="fg"><label>Ano</label>
+    <select id="f-ano"><option value="">Todos</option><option>2025</option><option>2026</option></select>
+  </div>
+  <div class="fg" style="position:relative">
+  <label>Mês</label>
+  <div class="ms-wrap" id="ms-mes-wrap">
+    <button class="ms-btn" id="ms-mes-btn" type="button" onclick="toggleMsDropdown()">Todos</button>
+    <div class="ms-dropdown" id="ms-mes-dropdown">
+      <label class="ms-item ms-all"><input type="checkbox" id="ms-all-cb" onchange="toggleAllMes(this)"> Todos</label>
+      <div id="ms-mes-items"></div>
+    </div>
+  </div>
+</div>
+  <div class="fsep"></div>
+  <div class="fg"><label>Habilitação</label><select id="f-hab"><option value="">Todos</option></select></div>
+  <div class="fsep"></div>
+  <div class="fg"><label>DI&amp;Turma</label><select id="f-diturma"><option value="">Todos</option></select></div>
+  <div class="fsep"></div>
+  <div class="fg-itens">
+    <label>Itens</label>
+    <label class="icheck" id="lbl-AulaOnline"><input type="checkbox" value="Aula Online"> Aula Online</label>
+    <label class="icheck" id="lbl-AulaPratica"><input type="checkbox" value="Aula Prática"> Aula Prática</label>
+    <label class="icheck" id="lbl-Professor"><input type="checkbox" value="Professor"> Professor</label>
+    <label class="icheck" id="lbl-Triagem"><input type="checkbox" value="Triagem"> Triagem</label>
+    <label class="icheck" id="lbl-Infraestrutura"><input type="checkbox" value="Infraestrutura"> Infraestrutura</label>
+    <label class="icheck" id="lbl-Avida"><input type="checkbox" value="Plataforma Avida"> Plataforma Avida</label>
+  </div>
+  <button class="btn-reset" onclick="resetFilters()">↺ Limpar</button>
+  <input type="file" id="upload-base" accept=".xlsx" style="display:none" onchange="loadNewBase(this)">
+  <button class="btn-reset" onclick="document.getElementById('upload-base').click()" title="Carregar nova base Excel" style="display:flex;align-items:center;gap:5px;color:var(--muted)">
+    📂 Atualizar base
+  </button>
+  <span id="upload-status" style="font-size:11px;color:var(--muted);display:none"></span>
+  <span id="ls-badge" style="display:none;font-size:10px;background:#dbeafe;color:#1d4ed8;padding:3px 9px;border-radius:10px;align-items:center;gap:6px;cursor:default" title="Base salva localmente">💾</span>
+  <button id="ls-clear-btn" onclick="if(confirm('Remover base salva e voltar aos dados originais?')) clearLocalStorage()" style="display:none;background:none;border:none;font-size:10px;color:#dc2626;cursor:pointer;text-decoration:underline">Limpar</button>
+</div>
+<div id="semana-bar" style="background:#fff;border-bottom:1px solid var(--border);padding:5px 28px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;min-width:56px">Semana</span>
+  <div id="semana-checkboxes" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+</div>
+<div style="background:#fff;border-bottom:1px solid var(--border);padding:4px 28px;">
+  <div class="online-pill" style="display:inline-flex">🖥 Online = Psiquiatria Clínica + Endocrinologia Clínica (cadastradas em Campinas/Consolação)</div>
+</div>
+
+<div class="tabs-nav">
+  <button class="tab-btn active" onclick="switchTab('geral')">🏠 Visão Geral</button>
+  <button class="tab-btn" onclick="switchTab('onepage')">📄 One Page</button>
+  <button class="tab-btn" onclick="switchTab('brasilia')">📍 Brasília</button>
+  <button class="tab-btn" onclick="switchTab('campinas')">📍 Campinas</button>
+  <button class="tab-btn" onclick="switchTab('consolacao')">📍 Consolação</button>
+  <button class="tab-btn t-online" onclick="switchTab('online')">🖥️ Online</button>
+  <button class="tab-btn" onclick="switchTab('itens')">📊 Itens Específicos</button>
+  <button class="tab-btn" onclick="switchTab('modulos')">📚 Ranking por Módulo</button>
+  <button class="tab-btn" onclick="switchTab('turmas')">🏫 Ranking por Turma</button>
+  <button class="tab-btn" onclick="switchTab('correlacoes')">📈 Correlações</button>
+  <button class="tab-btn" onclick="switchTab('pacientes')">🩺 Triagem & Pacientes</button>
+  <button class="tab-btn" onclick="switchTab('comentarios')">💬 Comentários</button>
+  <button class="tab-btn" onclick="switchTab('analise')">📊 Análise de Comentários</button>
+  <button class="tab-btn" onclick="switchTab('consolidado')">🧭 Consolidado</button>
+  <button class="tab-btn" onclick="switchTab('fcar')">🎯 Fato · Causa</button>
+  <button class="tab-btn" onclick="switchTab('nps')">📈 NPS</button>
+  <button class="tab-btn" onclick="switchTab('resumo')">Resumo Executivo</button>
+</div>
+
+<div id="tab-geral" class="tab-content active">
+  <div style="display:flex;align-items:center;gap:16px;font-size:11px;color:var(--muted);margin-bottom:8px;flex-wrap:wrap;">
+    <span style="font-weight:700;text-transform:uppercase;letter-spacing:.5px">Legenda:</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="color:var(--good);font-size:13px">▲</span> Promotores — Nota ≥ 9</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="color:var(--warn);font-size:13px">●</span> Neutros — Nota 7 ou 8</span>
+    <span style="display:flex;align-items:center;gap:4px;"><span style="color:var(--bad);font-size:13px">▼</span> Detratores — Nota ≤ 6</span>
+    <span style="color:var(--border)">|</span>
+    <span>% calculado sobre o total de respostas únicas por unidade</span>
+  </div>
+  <div id="cards-geral" class="cards-row"></div>
+  <div class="cbox full" style="margin-bottom:20px">
+    <h3>Engajamento — Adesão às Pesquisas</h3>
+    <div style="font-size:11px;color:var(--muted);margin:-10px 0 12px;">% de respondidos ÷ convites enviados por mês · nº de convites acima da coluna</div>
+    <div id="engajamento-filtro-unidade" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap"></div>
+    <div class="cwrap" style="height:280px"><canvas id="ch-engajamento"></canvas></div>
+    <div class="charts-row" style="margin-top:18px">
+      <div class="cbox" style="flex:1;min-width:300px">
+        <h3>Adesão por Unidade</h3>
+        <div class="cwrap" style="height:220px"><canvas id="ch-engajamento-unidade"></canvas></div>
+      </div>
+      <div class="cbox" style="flex:1;min-width:300px">
+        <h3>Adesão por Habilitação (top 10)</h3>
+        <div class="cwrap" style="height:220px"><canvas id="ch-engajamento-hab"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="cbox full" style="margin-bottom:20px">
+    <h3>Evolução da Satisfação</h3>
+    <div style="font-size:11px;color:var(--muted);margin:-10px 0 12px;">Nota média por mês · nº de respostas na coluna</div>
+    <div class="cwrap" style="height:280px"><canvas id="ch-evolucao-geral"></canvas></div>
+  </div>
+  <div class="cbox full" style="margin-bottom:20px">
+    <h3>Evolução da Satisfação — Semanal</h3>
+    <div style="font-size:11px;color:var(--muted);margin:-10px 0 12px;">Nota média por semana · nº de respostas na coluna</div>
+    <div class="cwrap" style="height:280px"><canvas id="ch-evolucao-semanal"></canvas></div>
+  </div>
+  <div class="charts-row">
+    <div class="cbox" style="flex:2;min-width:420px"><h3>Nota Mensal por Unidade</h3><div class="cwrap"><canvas id="ch-monthly"></canvas></div></div>
+    <div class="cbox" style="flex:1;min-width:240px"><h3>Distribuição de Respostas</h3><div class="cwrap"><canvas id="ch-pie"></canvas></div></div>
+  </div>
+  <div class="cbox full" style="margin-bottom:20px">
+  <h3>📅 Nota por Unidade por Semana</h3>
+  <div class="cwrap" style="height:260px"><canvas id="ch-weekly-units"></canvas></div>
+</div>
+
+<div class="charts-row" style="margin-bottom:20px">
+  <div class="cbox" style="flex:1;min-width:300px">
+    <h3>🏆 Top 5 Habilitações</h3>
+    <div class="cwrap" style="height:200px"><canvas id="ch-rank-top"></canvas></div>
+  </div>
+  <div class="cbox" style="flex:1;min-width:300px">
+    <h3>⚠️ Bottom 5 Habilitações</h3>
+    <div class="cwrap" style="height:200px"><canvas id="ch-rank-bot"></canvas></div>
+  </div>
+</div>
+<div class="cbox full"><h3>Nota Média por Habilitação e Unidade</h3><div class="cwrap" style="height:360px"><canvas id="ch-hab-geral"></canvas></div></div>
+<div id="spark-geral" style="margin-top:20px"></div>
+<div id="spark-geral-brasilia" style="margin-top:20px"></div>
+<div id="spark-geral-campinas" style="margin-top:20px"></div>
+<div id="spark-geral-consolacao" style="margin-top:20px"></div>
+<div id="spark-geral-online" style="margin-top:20px"></div>
+</div>
+
+<div id="tab-onepage" class="tab-content">
+  <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:6px">
+    <div>
+      <h2 style="font-size:19px;font-weight:800;color:var(--navy);margin-bottom:2px">📄 One Page — leitura executiva</h2>
+      <div style="font-size:12px;color:var(--muted);max-width:760px;line-height:1.5">
+        Esta aba usa a <b>barra de filtros do topo</b> (unidade, especialidade, ano, mês, turma, semana e nota por itens) e acrescenta o filtro de <b>módulo</b> abaixo, que não existe na barra global. Tudo na página responde ao mesmo recorte.
+      </div>
+      <div style="font-size:11.5px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:6px 10px;margin-top:8px;max-width:760px;line-height:1.5">
+        Documento preparado para envio aos professores: <b>nomes de pessoas são removidos automaticamente</b> de todos os comentários exibidos nesta aba, e nenhum nome de aluno aparece.
+      </div>
+    </div>
+    <button id="op-copy-btn" onclick="copyOnepageToClipboard()"
+      style="margin-left:auto;padding:8px 16px;border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Copiar One Page como imagem</button>
+  </div>
+
+  <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="fg">
+        <label for="op-f-modulo">Módulo</label>
+        <select id="op-f-modulo" style="min-width:240px"><option value="">Todos os módulos</option></select>
+      </div>
+      <button class="btn-reset" style="margin-left:0" onclick="clearOnepageModulo()">Limpar módulo</button>
+      <button class="btn-reset" style="margin-left:0" onclick="resetFilters()">Limpar todos os filtros</button>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Recorte ativo</div>
+    <div id="op-recorte"></div>
+  </div>
+
+  <div id="op-capture">
+    <div id="op-body"></div>
+  </div>
+</div>
+
+<div id="tab-brasilia" class="tab-content">
+  <div id="cards-brasilia" class="cards-row"></div>
+  <div class="charts-row">
+    <div class="cbox" style="flex:2;min-width:380px"><h3>Evolução Mensal — Brasília</h3><div class="cwrap"><canvas id="ch-bsb-m"></canvas></div></div>
+    <div class="cbox" style="flex:1;min-width:240px"><h3>Nota por Habilitação</h3><div class="cwrap"><canvas id="ch-bsb-h"></canvas></div></div>
+  </div>
+  <div class="cbox full" style="margin-top:20px">
+  <h3>Evolução Semanal — BRASÍLIA</h3>
+  <div class="cwrap" style="height:200px"><canvas id="ch-evol-sem-brasilia"></canvas></div>
+</div>
+<div class="cbox full" style="margin-top:12px">
+  <h3>Evolução Mensal por Habilitação — BRASÍLIA</h3>
+  <div class="cwrap" style="height:260px"><canvas id="ch-evol-brasilia"></canvas></div>
+</div>
+<div id="spark-brasilia" style="margin-top:20px"></div>
+<div id="cross-analise-brasilia" style="margin-top:16px"></div>
+
+<div id="turmas-neg-brasilia" style="margin-top:20px"></div>
+</div>
+
+<div id="tab-campinas" class="tab-content">
+  <div id="cards-campinas" class="cards-row"></div>
+  <div class="charts-row">
+    <div class="cbox" style="flex:2;min-width:380px"><h3>Evolução Mensal — Campinas</h3><div class="cwrap"><canvas id="ch-cps-m"></canvas></div></div>
+    <div class="cbox" style="flex:1;min-width:240px"><h3>Nota por Habilitação</h3><div class="cwrap"><canvas id="ch-cps-h"></canvas></div></div>
+  </div>
+  <div class="cbox full" style="margin-top:20px">
+  <h3>Evolução Semanal — CAMPINAS</h3>
+  <div class="cwrap" style="height:200px"><canvas id="ch-evol-sem-campinas"></canvas></div>
+</div>
+<div class="cbox full" style="margin-top:12px">
+  <h3>Evolução Mensal por Habilitação — CAMPINAS</h3>
+  <div class="cwrap" style="height:260px"><canvas id="ch-evol-campinas"></canvas></div>
+</div>
+<div id="spark-campinas" style="margin-top:20px"></div>
+<div id="cross-analise-campinas" style="margin-top:16px"></div>
+
+<div id="turmas-neg-campinas" style="margin-top:20px"></div>
+</div>
+
+<div id="tab-consolacao" class="tab-content">
+  <div id="cards-consolacao" class="cards-row"></div>
+  <div class="charts-row">
+    <div class="cbox" style="flex:2;min-width:380px"><h3>Evolução Mensal — Consolação</h3><div class="cwrap"><canvas id="ch-con-m"></canvas></div></div>
+    <div class="cbox" style="flex:1;min-width:240px"><h3>Nota por Habilitação</h3><div class="cwrap"><canvas id="ch-con-h"></canvas></div></div>
+  </div>
+  <div class="cbox full" style="margin-top:20px">
+  <h3>Evolução Semanal — CONSOLAÇÃO</h3>
+  <div class="cwrap" style="height:200px"><canvas id="ch-evol-sem-consolacao"></canvas></div>
+</div>
+<div class="cbox full" style="margin-top:12px">
+  <h3>Evolução Mensal por Habilitação — CONSOLAÇÃO</h3>
+  <div class="cwrap" style="height:260px"><canvas id="ch-evol-consolacao"></canvas></div>
+</div>
+<div id="spark-consolacao" style="margin-top:20px"></div>
+<div id="cross-analise-consolacao" style="margin-top:16px"></div>
+
+<div id="turmas-neg-consolacao" style="margin-top:20px"></div>
+</div>
+
+<div id="tab-online" class="tab-content">
+  <div class="onote">🖥️ <strong>Unidade ONLINE</strong> — Turmas de <strong>Psiquiatria Clínica</strong> e <strong>Endocrinologia Clínica</strong> originalmente cadastradas em Campinas/Consolação.</div>
+  <div id="cards-online" class="cards-row"></div>
+  <div class="charts-row">
+    <div class="cbox online-box" style="flex:2;min-width:380px"><h3>Evolução Mensal — Online</h3><div class="cwrap"><canvas id="ch-onl-m"></canvas></div></div>
+    <div class="cbox online-box" style="flex:1;min-width:240px"><h3>Nota por Habilitação</h3><div class="cwrap"><canvas id="ch-onl-h"></canvas></div></div>
+  </div>
+  <div class="cbox full" style="margin-top:20px">
+  <h3>Evolução Semanal — ONLINE</h3>
+  <div class="cwrap" style="height:200px"><canvas id="ch-evol-sem-online"></canvas></div>
+</div>
+<div class="cbox full" style="margin-top:12px">
+  <h3>Evolução Mensal por Habilitação — ONLINE</h3>
+  <div class="cwrap" style="height:260px"><canvas id="ch-evol-online"></canvas></div>
+</div>
+<div id="spark-online" style="margin-top:20px"></div>
+<div id="cross-analise-online" style="margin-top:16px"></div>
+
+<div id="turmas-neg-online" style="margin-top:20px"></div>
+</div>
+
+
+
+<div id="tab-itens" class="tab-content">
+  <div class="criteria">
+    <div class="ci"><div class="cdot" style="background:var(--good)"></div>≥ 4,0 — Bom</div>
+    <div class="ci"><div class="cdot" style="background:var(--warn)"></div>3,5–3,9 — Atenção</div>
+    <div class="ci"><div class="cdot" style="background:var(--bad)"></div>&lt; 3,5 — Crítico</div>
+  </div>
+  <div class="cbox full"><h3>Itens Específicos por Unidade (escala 1–5)</h3>
+    <div class="cwrap" style="height:320px"><canvas id="ch-itens"></canvas></div>
+  </div>
+  <div id="itens-variacao" style="margin-top:20px"></div>
+  <div id="itens-tbl" style="margin-top:14px"></div>
+</div>
+
+<div id="tab-modulos" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <h3 style="margin:0">📚 Ranking por Módulo</h3>
+      <input id="modulos-search" type="text" placeholder="Buscar módulo ou curso..." style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;min-width:220px">
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="fg"><label>Curso</label><select id="modulos-f-curso"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Turma</label><select id="modulos-f-turma"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Mês</label><select id="modulos-f-mes"><option value="">Todos</option></select></div>
+      <button class="btn-reset" onclick="clearModulosFilters()">Limpar filtros</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin:2px 0 12px">
+      % Aderência = % de respostas com nota ≥ 9 (promotores) sobre o total de respostas do módulo · clique nos cabeçalhos para ordenar
+    </div>
+    <div id="modulos-table-wrap"></div>
+  </div>
+</div>
+
+<div id="tab-turmas" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <h3 style="margin:0">🏫 Ranking por Turma</h3>
+      <input id="turmas-search" type="text" placeholder="Buscar turma ou curso..." style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;min-width:220px">
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="fg"><label>Curso</label><select id="turmas-f-curso"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Unidade</label><select id="turmas-f-unidade"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Mês</label><select id="turmas-f-mes"><option value="">Todos</option></select></div>
+      <button class="btn-reset" onclick="clearTurmasFilters()">Limpar filtros</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin:2px 0 12px">
+      % Aderência = % de respostas com nota ≥ 9 (promotores) sobre o total de respostas da turma · clique nos cabeçalhos para ordenar
+    </div>
+    <div id="turmas-table-wrap"></div>
+  </div>
+</div>
+
+<div id="tab-correlacoes" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">📈 Correlação: Nota Geral × Itens Avaliados</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Coeficiente de Pearson (r) entre a <b>Nota Geral do CSAT (escala 0–10)</b> e cada um dos 6 itens específicos avaliados <b>(escala 0–5)</b>. Como as escalas são diferentes, a correlação é sempre Nota Geral × item — não item × item. Clique em uma célula para ver o detalhe (gráfico de dispersão) daquele item. Respeita os filtros globais e os filtros de Curso/Unidade/Mês desta aba.
+    </p>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="fg"><label>Curso</label><select id="correlacoes-f-curso"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Unidade</label><select id="correlacoes-f-unidade"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Mês</label><select id="correlacoes-f-mes"><option value="">Todos</option></select></div>
+      <button class="btn-reset" onclick="clearCorrelacoesFilters()">Limpar filtros</button>
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <button id="corr-gran-resposta" class="tab-btn active" style="padding:5px 12px;font-size:12px" onclick="setCorrGranularity('resposta')">Por Resposta</button>
+        <button id="corr-gran-turma" class="tab-btn" style="padding:5px 12px;font-size:12px" onclick="setCorrGranularity('turma')">Por Turma</button>
+      </div>
+    </div>
+    <div id="correlacoes-heatmap-wrap"></div>
+    <div id="correlacoes-caption" style="font-size:12px;color:var(--muted);margin-top:10px"></div>
+  </div>
+
+  <div class="cbox full">
+    <h3 style="margin:0 0 4px">🔎 Análise de um Item Específico</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Escolha um item para ver sua correlação com a Nota Geral em detalhe — r na granularidade selecionada acima (por resposta ou por turma) e o gráfico de dispersão correspondente (item em 0–5, Nota Geral em 0–10).
+    </p>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="fg"><label>Item (vs. Nota Geral)</label><select id="corr-item-sel"></select></div>
+    </div>
+    <div id="correlacoes-drill-wrap"></div>
+  </div>
+
+  <div class="cbox full" style="margin-top:14px">
+    <h3 style="margin:0 0 4px">📍 Correlação por Unidade</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      A mesma matriz Nota Geral × Itens, repetida para cada unidade — usa a granularidade (Por Resposta/Por Turma) e os filtros de Curso/Mês selecionados acima.
+    </p>
+    <div id="correlacoes-unidade-wrap" style="display:grid;grid-template-columns:1fr 1fr;gap:16px"></div>
+  </div>
+
+  <div class="cbox full" style="margin-top:14px">
+    <h3 style="margin:0 0 4px">🏫 Correlação por Turma</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Para cada turma, correlação (resposta a resposta) entre a Nota Geral e o item selecionado em "Análise de um Item Específico" acima. Só turmas com pelo menos 5 respostas com ambos os valores preenchidos entram na lista (amostras menores dão um r pouco confiável). Clique nos cabeçalhos para ordenar.
+    </p>
+    <div id="correlacoes-turma-wrap"></div>
+  </div>
+</div>
+
+<div id="tab-pacientes" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">📈 Correlação: Nota Geral × Itens Avaliados</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Coeficiente de Pearson (r) entre a <b>Nota Geral do CSAT (escala 0–10)</b> e cada um dos 6 itens específicos avaliados <b>(escala 0–5)</b>. Clique em uma célula para ver o detalhe daquele item. Respeita os filtros de Curso/Unidade/Mês desta aba (logo abaixo).
+    </p>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="display:flex;gap:6px;margin-left:auto">
+        <button id="pac-corr-gran-resposta" class="tab-btn active" style="padding:5px 12px;font-size:12px" onclick="setPacCorrGranularity('resposta')">Por Resposta</button>
+        <button id="pac-corr-gran-turma" class="tab-btn" style="padding:5px 12px;font-size:12px" onclick="setPacCorrGranularity('turma')">Por Turma</button>
+      </div>
+    </div>
+    <div id="pac-corr-heatmap-wrap"></div>
+    <div id="pac-corr-caption" style="font-size:12px;color:var(--muted);margin-top:10px"></div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0">
+      <div class="fg"><label>Item (vs. Nota Geral)</label><select id="pac-corr-item-sel"></select></div>
+    </div>
+    <div id="pac-corr-drill-wrap"></div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">🚩 % de Reclamações sobre Qualidade da Triagem</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Um comentário entra na conta quando <b>fala de triagem, seleção ou perfil de paciente</b> <i>e</i> <b>usa linguagem de problema</b>
+      (ruim, mal feita, melhorar, errado, sem critério, fora do perfil, não tinha queixa…). Elogios como "pacientes bem triados" ficam de fora.
+      Respeita os filtros globais e os filtros de Curso/Unidade/Mês desta aba. O percentual principal é sobre os <b>comentários escritos</b>;
+      ao lado, o mesmo número sobre <b>todas as respostas</b> do CSAT no escopo e sobre <b>as menções ao tema</b> — ou seja, de cada 100 comentários
+      que citam triagem/perfil de paciente (elogios e menções neutras incluídos), quantos são crítica. Esse terceiro corte é o mais severo, mas ele
+      se move por dois motivos ao mesmo tempo (mais reclamações <i>ou</i> menos elogios), então serve melhor como diagnóstico do que como meta.
+    </p>
+    <div id="recl-qual-wrap"></div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">🩺 Cruzamento: Comentários sobre Pacientes/Triagem × CSAT por Turma</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Classifica os comentários dos alunos em 3 categorias — <b>Qualidade da Triagem</b> (paciente mal triado, fora do perfil, sem queixa compatível com o módulo),
+      <b>Quantidade de Pacientes/Agenda</b> (poucos pacientes, agenda vazia, faltas/cancelamentos) e <b>Manifestação</b> (reclamação explícita sobre pacientes/triagem/agenda) —
+      e cruza com a Nota Geral e a Nota específica de Triagem de cada turma. Só aparecem turmas com pelo menos 1 comentário classificado em alguma categoria; clique nos cabeçalhos para ordenar.
+    </p>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px">
+      <div class="fg"><label>Curso</label><select id="triagem-f-curso"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Unidade</label><select id="triagem-f-unidade"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Mês</label><select id="triagem-f-mes"><option value="">Todos</option></select></div>
+      <button class="btn-reset" onclick="clearTriagemFilters()">Limpar filtros</button>
+    </div>
+    <div id="triagem-table-wrap"></div>
+  </div>
+
+  <div class="cbox full">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <h3 style="margin:0">💬 Comentários Classificados</h3>
+      <input id="triagem-search" type="text" placeholder="Buscar no comentário ou turma..." style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;min-width:220px">
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="triagem-cat-qualidade" checked> Qualidade da Triagem</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="triagem-cat-quantidade" checked> Quantidade/Agenda</label>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer"><input type="checkbox" id="triagem-cat-manifestacao" checked> Manifestação</label>
+    </div>
+    <div id="triagem-list-wrap"></div>
+  </div>
+</div>
+
+<div id="tab-comentarios" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <h3 style="margin:0">💬 Comentários</h3>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:4px">
+      <div class="fg"><label>Unidade</label><select id="comentarios-f-unidade"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Classificação NPS</label><select id="comentarios-f-classificacao"><option value="">Todas</option><option value="Promotor">Promotor</option><option value="Neutro">Neutro</option><option value="Detrator">Detrator</option></select></div>
+      <div class="fg"><label>Curso</label><select id="comentarios-f-curso"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Mês</label><select id="comentarios-f-mes"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Status</label><select id="comentarios-f-status"><option value="">Todos</option><option value="Pendente">Pendente</option><option value="Em Avaliação">Em Avaliação</option><option value="Respondido">Respondido</option></select></div>
+      <button class="btn-reset" onclick="clearComentariosFilters()">Limpar filtros</button>
+    </div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">📊 Promotores, Neutros e Detratores por Unidade</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      NPS = % Promotores − % Detratores. Respeita os filtros globais e os filtros de Unidade/Classificação/Curso/Mês desta aba.
+    </p>
+    <div id="comentarios-analise-wrap"></div>
+  </div>
+
+  <div class="cbox full">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <h3 style="margin:0">🗨️ Lista de Comentários</h3>
+      <input id="comentarios-search" type="text" placeholder="Buscar no comentário ou turma..." style="padding:6px 10px;border:1px solid var(--border);border-radius:4px;font-size:13px;min-width:220px">
+    </div>
+    <div id="comentarios-list-wrap"></div>
+  </div>
+</div>
+
+<div id="tab-analise" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+      <h3 style="margin:0">📊 Análise de Comentários</h3>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 10px;line-height:1.6">
+      Análise lexical automática dos comentários (mesmo motor de análise usado no Resumo Executivo) — temas recorrentes, evolução do sentimento, cruzamento tema × turma/unidade e ranking de turmas por comentários negativos. Um comentário pode conter mais de um tema.
+      Respeita os filtros globais (barra superior) e os filtros de Unidade/Curso/Mês desta aba.
+    </p>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <div class="fg"><label>Unidade</label><select id="analise-f-unidade"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Curso</label><select id="analise-f-curso"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Mês</label><select id="analise-f-mes"><option value="">Todos</option></select></div>
+      <button class="btn-reset" onclick="clearAnaliseFilters()">Limpar filtros</button>
+    </div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">🏷️ Ranking de Temas Recorrentes</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Contagem de menções por tema (análise lexical de palavras-chave), nota média dos comentários que citam o tema e % positivo/neutro/negativo dentro do tema · um comentário pode contar em mais de um tema · clique nos cabeçalhos para ordenar.
+    </p>
+    <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:start">
+      <div id="analise-temas-table-wrap"></div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Evolução mensal — top 5 temas por menções</div>
+        <div class="cwrap" style="height:300px"><canvas id="ch-analise-temas"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">📈 Evolução do Sentimento ao Longo do Tempo</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      % de comentários positivos, neutros e negativos por mês (barras 100% empilhadas). Selecione uma unidade para ver a evolução apenas daquela unidade, ou deixe "Todas" para a visão geral.
+    </p>
+    <div style="margin-bottom:10px">
+      <div class="fg"><label>Unidade</label><select id="analise-sent-unidade"><option value="">Todas</option></select></div>
+    </div>
+    <div class="cwrap" style="height:300px"><canvas id="ch-analise-sentimento"></canvas></div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">🔀 Cruzamento Tema × Turma/Unidade</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Selecione um tema para ver quais turmas/unidades mais o mencionam nos comentários · clique nos cabeçalhos para ordenar.
+    </p>
+    <div id="analise-tema-select-wrap" style="margin-bottom:12px"></div>
+    <div id="analise-cross-table-wrap"></div>
+  </div>
+
+  <div class="cbox full">
+    <h3 style="margin:0 0 4px">⚠️ Ranking de Turmas por Comentários Negativos</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 14px;line-height:1.6">
+      Turmas com mais comentários negativos (nota ≤ 6, sem indícios de linguagem fortemente positiva na análise lexical) e % negativo sobre o total de comentários da turma · clique em uma linha para ver exemplos.
+    </p>
+    <div id="analise-turmasneg-table-wrap"></div>
+  </div>
+</div>
+
+<div id="tab-consolidado" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+      <h3 style="margin:0">🧭 Consolidado — Problemas, Recorrência e Plano de Ação</h3>
+      <button class="cons-btn" onclick="consCopiarPlano()">📋 Copiar plano de ação</button>
+    </div>
+    <div class="cons-note">
+      Esta aba tem <b>filtros próprios</b> e <b>não</b> usa a barra de filtros do topo — assim você pode selecionar várias turmas da mesma especialidade ao mesmo tempo (ex.: três turmas de Dermatologia) e compará-las lado a lado.
+      Os problemas são extraídos dos comentários por análise lexical (mesmo motor das abas Análise de Comentários e Resumo Executivo) e classificados por <b>recorrência</b>:
+      <b>Pontual</b> (aparece em 1 mês) · <b>Recorrente</b> (2 a 3 meses) · <b>Crônico</b> (4 meses ou mais). O plano de ação sugerido no fim da página muda conforme essa classificação.
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
+      <div class="fg"><label>Unidade</label><select id="cons-f-unidade"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Especialidade</label><select id="cons-f-hab"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Turmas</label>
+        <div class="ms-wrap" id="cons-ms-turmas-wrap">
+          <button class="ms-btn" id="cons-ms-turmas-btn" type="button" onclick="consToggleDd('turmas')">Todas</button>
+          <div class="ms-dropdown" id="cons-ms-turmas-dropdown" style="min-width:330px">
+            <label class="ms-item ms-all"><input type="checkbox" id="cons-turmas-all-cb" onchange="consToggleAll('turmas',this)"> Todas as turmas do recorte</label>
+            <div id="cons-ms-turmas-items"></div>
+          </div>
+        </div>
+      </div>
+      <div class="fg"><label>Mês</label>
+        <div class="ms-wrap" id="cons-ms-mes-wrap">
+          <button class="ms-btn" id="cons-ms-mes-btn" type="button" onclick="consToggleDd('mes')">Todos</button>
+          <div class="ms-dropdown" id="cons-ms-mes-dropdown">
+            <label class="ms-item ms-all"><input type="checkbox" id="cons-mes-all-cb" onchange="consToggleAll('mes',this)"> Todos</label>
+            <div id="cons-ms-mes-items"></div>
+          </div>
+        </div>
+      </div>
+      <div class="fg"><label title="Define sobre qual janela de tempo a recorrência de cada problema é contada">Janela de recorrência</label>
+        <select id="cons-f-recwindow">
+          <option value="full">Histórico completo das turmas</option>
+          <option value="filtered">Apenas os meses filtrados</option>
+        </select>
+      </div>
+      <button class="btn-reset" onclick="consClearFilters()">Limpar filtros</button>
+    </div>
+  </div>
+
+  <div id="cons-kpis"></div>
+  <div id="cons-turmas"></div>
+  <div id="cons-problemas"></div>
+  <div id="cons-heatmap"></div>
+  <div id="cons-plano"></div>
+  <div id="cons-comentarios"></div>
+</div>
+
+<div id="tab-fcar" class="tab-content">
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">🎯 Fato · Causa · Ação · Resultado</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 10px;line-height:1.6">
+      <b>Fato</b> e <b>Causa</b> são calculados automaticamente a partir dos comentários (análise lexical por palavras-chave). <b>Ação</b> e <b>Resultado</b> são digitados abaixo e
+      <b>não ficam salvos</b> — vão apenas para o PDF. Esta aba tem filtros próprios e não usa a barra de filtros do topo.
+    </p>
+    <div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap">
+      <div class="fg"><label>Unidade</label><select id="fcar-f-unidade" onchange="fcarSet('unidade',this.value)"><option value="">Todas</option></select></div>
+      <div class="fg"><label>Curso</label><select id="fcar-f-curso" onchange="fcarSet('curso',this.value)"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Mês</label><select id="fcar-f-mes" onchange="fcarSet('mes',this.value)"><option value="">Todos</option></select></div>
+      <div class="fg"><label>Comentários</label>
+        <select id="fcar-f-base" onchange="fcarSet('base',this.value)">
+          <option value="neg">Somente negativos</option><option value="negneu">Negativos e neutros</option><option value="all">Todos</option>
+        </select></div>
+      <button class="btn-reset" onclick="fcarLimpar()">Limpar filtros</button>
+    </div>
+    <div id="fcar-info" style="font-size:12px;color:var(--muted);margin-top:10px"></div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <h3 style="margin:0 0 4px">1 · Fato — principais problemas do período</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Comentários por tema (um comentário pode contar em mais de um). Clique numa barra para ver a causa daquele tema.</p>
+    <div class="fcar-grid">
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Temas mais citados no recorte</div><div class="cwrap" style="height:300px"><canvas id="fcar-fato-chart"></canvas></div></div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Evolução mensal dos 5 principais temas (ignora o filtro de mês)</div><div class="cwrap" style="height:300px"><canvas id="fcar-evol-chart"></canvas></div></div>
+    </div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+      <h3 style="margin:0">2 · Causa — o que mais se repete nos comentários</h3>
+      <div class="fg"><label>Tema</label><select id="fcar-tema-sel" onchange="fcarSet('tema',this.value)"></select></div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Palavras e expressões citadas em 2 ou mais comentários do tema (indício de causa, não conclusão — confirme lendo os comentários).</p>
+    <div class="fcar-grid">
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Palavras mais repetidas</div>
+        <div class="cwrap" style="height:300px"><canvas id="fcar-causa-chart"></canvas></div>
+        <div id="fcar-causa-vazio" style="display:none;color:var(--muted);font-size:12px">Nenhuma palavra se repete 2 vezes ou mais neste recorte.</div></div>
+      <div><div style="font-size:11px;color:var(--muted);margin-bottom:6px">Expressões recorrentes</div><div id="fcar-expr"></div></div>
+    </div>
+  </div>
+
+  <div class="cbox full">
+    <h3 style="margin:0 0 4px">3 · Ação e 4 · Resultado — preenchimento manual</h3>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Não são salvos: ao recarregar a página o texto some. Baixe o PDF antes de sair.</p>
+    <div class="fcar-grid">
+      <div><label style="font-size:12px;font-weight:700">3 · Ação — o que a unidade fez ou está fazendo para atacar a causa</label>
+        <textarea id="fcar-acao" class="fcar-txt"></textarea></div>
+      <div><label style="font-size:12px;font-weight:700">4 · Resultado — o que mudou depois da ação</label>
+        <textarea id="fcar-resultado" class="fcar-txt"></textarea></div>
+    </div>
+    <div style="margin-top:14px"><button id="fcar-pdf-btn" class="fcar-pdf" onclick="fcarGerarPdf()">📄 Baixar PDF</button></div>
+  </div>
+</div>
+
+<div id="tab-nps" class="tab-content">
+  <div id="nps-content"></div>
+</div>
+
+<div id="tab-resumo" class="tab-content">
+  <div id="resumo-content"></div>
+</div>
+
+<script src="protecao.js"></script>
+<script>Protecao.iniciar({ arquivo: 'data.enc', modo: 'script', depois: ['app.js', 'fcar.js'], titulo: 'CSAT Pós Med', chaveSessao: 'csat_chave_v1' });</script>
+</body>
+</html>
