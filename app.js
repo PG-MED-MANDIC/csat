@@ -173,7 +173,51 @@ function monthlyLine(canvasId, units, filteredData) {
 // usuário 2026-09-25). Os 2 gráficos de baixo (por unidade/habilitação)
 // continuam mostrando sempre todas as unidades -- é a função deles.
 
-let engajamentoFiltroUnidade = ''; // '' = Todos
+let engajamentoFiltroUnidade = null; // null = segue o filtro de Unidade do topo; '' = Todos; senão chave do JSON
+
+// Chave de unidade usada em DATA_ENGAJAMENTO.mensal_por_unidade a partir da
+// unidade do card/filtro ('ONLINE' vira 'Disciplina Online'; demais iguais).
+function engajamentoChaveUnidade(u) {
+  return u === 'ONLINE' ? 'Disciplina Online' : u;
+}
+
+// Série mensal base respeitando os filtros do topo, na ordem: habilitação >
+// unidade > total geral (a query do BigQuery só abre unidade OU habilitação,
+// nunca as duas cruzadas -- com as duas marcadas vale a habilitação e
+// `unidadeIgnorada` fica true). `opts.unidade` (botões da própria seção ou
+// card) tem prioridade sobre a unidade do topo. Depois aplica Ano e Mês do topo.
+function engajamentoSerieFiltrada(opts = {}) {
+  const D = (typeof DATA_ENGAJAMENTO !== 'undefined') ? DATA_ENGAJAMENTO : null;
+  if (!D?.mensal?.length) return { serie: [], unidadeIgnorada: false };
+  const unidadeTopo = opts.unidade !== undefined ? opts.unidade : F.unidade;
+  const chaveUni = unidadeTopo ? engajamentoChaveUnidade(unidadeTopo) : '';
+  let base = D.mensal, unidadeIgnorada = false;
+  if (!opts.ignoraHab && F.hab && D.mensal_por_habilitacao?.[F.hab]) {
+    base = D.mensal_por_habilitacao[F.hab];
+    unidadeIgnorada = !!chaveUni;
+  } else if (chaveUni && D.mensal_por_unidade?.[chaveUni]) {
+    base = D.mensal_por_unidade[chaveUni];
+  }
+  // reindexa pelo eixo de meses de D.mensal (meses sem convite viram 0/null)
+  const porMes = {};
+  base.forEach(r => { porMes[r.mes] = r; });
+  let serie = D.mensal.map(m => porMes[m.mes] || { mes: m.mes, mes_label: m.mes_label, conv: 0, resp: 0, pct: null });
+  if (F.ano) serie = serie.filter(r => r.mes.slice(0, 4) === String(F.ano));
+  if (F.mes.length > 0) serie = serie.filter(r => F.mes.includes(r.mes_label));
+  return { serie, unidadeIgnorada };
+}
+
+// Agrega vários meses: adesão do período = soma(resp) / soma(conv)
+// (nunca a média dos percentuais mensais).
+function engajamentoAgregar(serie) {
+  const conv = serie.reduce((a, r) => a + (r.conv || 0), 0);
+  const resp = serie.reduce((a, r) => a + (r.resp || 0), 0);
+  return {
+    conv, resp, meses: serie.filter(r => r.conv > 0).length,
+    pct: conv > 0 ? Math.round(resp / conv * 1000) / 10 : null,
+    de: serie.length ? serie[0].mes_label : '', ate: serie.length ? serie[serie.length - 1].mes_label : ''
+  };
+}
 
 // Ordem fixa de exibição + rótulo amigável pro filtro -- "Disciplina Online"
 // vira só "Online" no botão (mais curto), mas continua usando a cor de
@@ -191,6 +235,12 @@ function setEngajamentoFiltro(u) {
   engajamentoCombo('ch-engajamento');
 }
 
+// Unidade efetiva do gráfico: botão da seção (se clicado) senão filtro do topo.
+function engajamentoUnidadeEfetiva() {
+  if (engajamentoFiltroUnidade !== null) return engajamentoFiltroUnidade;
+  return F.unidade ? engajamentoChaveUnidade(F.unidade) : '';
+}
+
 function populateEngajamentoFiltro() {
   const wrap = document.getElementById('engajamento-filtro-unidade');
   if (!wrap || typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.mensal_por_unidade) return;
@@ -198,7 +248,7 @@ function populateEngajamentoFiltro() {
   const opcoes = ['', ...disponiveis];
   wrap.innerHTML = opcoes.map(u => {
     const label = u === '' ? 'Todos' : ENGAJAMENTO_UNIDADE_LABEL[u] || u;
-    const ativo = engajamentoFiltroUnidade === u;
+    const ativo = engajamentoUnidadeEfetiva() === u;
     const cor = u === '' ? '#1A2459' : engajamentoUnidadeCor(u);
     return `<button onclick="setEngajamentoFiltro('${u}')" style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;cursor:pointer;
       border:1px solid ${cor};background:${ativo ? cor : '#fff'};color:${ativo ? '#fff' : cor}">${label}</button>`;
@@ -217,12 +267,21 @@ function engajamentoCombo(canvasId) {
   // meses de DATA_ENGAJAMENTO.mensal (preenchendo com 0/null onde a unidade
   // não teve convite naquele mês) -- mantém o eixo X estável ao trocar de
   // filtro, em vez de encolher/esticar o gráfico.
-  let mensal = DATA_ENGAJAMENTO.mensal;
-  if (engajamentoFiltroUnidade) {
-    const serieUnidade = DATA_ENGAJAMENTO.mensal_por_unidade?.[engajamentoFiltroUnidade] || [];
-    const porMes = {};
-    serieUnidade.forEach(r => { porMes[r.mes] = r; });
-    mensal = DATA_ENGAJAMENTO.mensal.map(base => porMes[base.mes] || { mes: base.mes, mes_label: base.mes_label, conv: 0, resp: 0, pct: null });
+  // Respeita também Ano / Mês / Habilitação do topo (ver engajamentoSerieFiltrada).
+  const uniEfetiva = engajamentoUnidadeEfetiva();
+  const { serie: mensal, unidadeIgnorada } = engajamentoSerieFiltrada({ unidade: uniEfetiva });
+  const agg = engajamentoAgregar(mensal);
+  const resumo = document.getElementById('engajamento-resumo');
+  if (resumo) {
+    const partes = [];
+    if (uniEfetiva) partes.push(ENGAJAMENTO_UNIDADE_LABEL[uniEfetiva] || uniEfetiva);
+    if (F.hab) partes.push(F.hab);
+    const escopo = partes.length ? partes.join(' · ') : 'Todas as unidades';
+    const periodo = agg.meses > 1 ? `${agg.de} a ${agg.ate} (${agg.meses} meses)` : (agg.de || '—');
+    resumo.innerHTML = agg.conv > 0
+      ? `<b>${escopo}</b> · ${periodo}: <b>${agg.resp.toLocaleString('pt-BR')}</b> respondidos ÷ <b>${agg.conv.toLocaleString('pt-BR')}</b> convites = <b style="color:#16a34a">${agg.pct.toFixed(1)}%</b>`
+        + (unidadeIgnorada ? ' <span style="color:#b45309">· filtro de unidade não se aplica junto com habilitação (a base não cruza os dois)</span>' : '')
+      : `<b>${escopo}</b> · sem convites no período selecionado`;
   }
 
   const labels = mensal.map(r => r.mes_label);
@@ -408,14 +467,8 @@ function evolucaoGeralCombo(canvasId, filteredData) {
   // pros filtros do topo: habilitação > unidade > total geral.
   let engajamentoPct = null;
   if (typeof DATA_ENGAJAMENTO !== 'undefined' && DATA_ENGAJAMENTO?.mensal?.length) {
-    let serieConv = DATA_ENGAJAMENTO.mensal;
-    if (F.hab && DATA_ENGAJAMENTO.mensal_por_habilitacao?.[F.hab]) {
-      serieConv = DATA_ENGAJAMENTO.mensal_por_habilitacao[F.hab];
-    } else if (F.unidade && DATA_ENGAJAMENTO.mensal_por_unidade?.[F.unidade]) {
-      serieConv = DATA_ENGAJAMENTO.mensal_por_unidade[F.unidade];
-    }
     const pctPorMes = {};
-    serieConv.forEach(r => { pctPorMes[r.mes_label] = r.pct; });
+    engajamentoSerieFiltrada().serie.forEach(r => { pctPorMes[r.mes_label] = r.pct; });
     engajamentoPct = mesFiltered.map(m => pctPorMes[m.l] ?? null);
   }
   const engajamentoValidos = engajamentoPct ? engajamentoPct.filter(v => v != null) : [];
@@ -770,11 +823,22 @@ function renderCards(containerId, unit, filteredData, isOnline) {
 // vem ordenada por mês ascendente) -- é o "mês atual" na prática, porque o
 // pipeline de engajamento roda todo dia e o mês corrente só fecha quando vira
 // o mês seguinte.
+// Com Ano/Mês no topo: agrega os meses selecionados (soma resp ÷ soma conv,
+// igual ao gráfico). Sem nenhum filtro de período: mantém o mês mais recente.
+// Com Habilitação no topo não dá pra abrir por unidade (a base não cruza os
+// dois) -- retorna null e o selo some.
 function engajamentoUnidadeAtual(unidadeCard) {
   if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.mensal_por_unidade) return null;
-  const chave = unidadeCard === 'ONLINE' ? 'Disciplina Online' : unidadeCard;
-  const serie = DATA_ENGAJAMENTO.mensal_por_unidade[chave];
-  return serie && serie.length ? serie[serie.length - 1] : null;
+  if (F.hab) return null;
+  const chave = engajamentoChaveUnidade(unidadeCard);
+  const serieUni = DATA_ENGAJAMENTO.mensal_por_unidade[chave];
+  if (!serieUni || !serieUni.length) return null;
+  if (!F.ano && F.mes.length === 0) return { ...serieUni[serieUni.length - 1], meses: 1 };
+  const { serie } = engajamentoSerieFiltrada({ unidade: unidadeCard, ignoraHab: true });
+  const agg = engajamentoAgregar(serie);
+  if (agg.conv === 0) return null;
+  const label = agg.meses > 1 ? agg.de + '–' + agg.ate : (serie.find(r => r.conv > 0)?.mes_label || agg.de);
+  return { mes_label: label, conv: agg.conv, resp: agg.resp, pct: agg.pct, meses: agg.meses };
 }
 
 function renderGeralCards(filteredData) {
@@ -790,7 +854,7 @@ function renderGeralCards(filteredData) {
     const isOnline = u==='ONLINE';
     const eng = engajamentoUnidadeAtual(u);
     const engHtml = eng ? `
-        <div title="Engajamento (adesão às pesquisas) de ${eng.mes_label}: ${eng.resp} de ${eng.conv} convites"
+        <div title="Engajamento (adesão às pesquisas) de ${eng.mes_label}: ${eng.resp} de ${eng.conv} convites${eng.meses > 1 ? ' (soma de ' + eng.meses + ' meses)' : ''}"
              style="position:absolute;top:12px;right:14px;text-align:right;line-height:1.1">
           <div style="font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Engajamento ${eng.mes_label}</div>
           <div style="font-size:16px;font-weight:800;color:#16a34a">${eng.pct!=null ? eng.pct.toFixed(1)+'%' : '—'}</div>
@@ -1944,6 +2008,7 @@ function renderAll() {
 
   if (activeTab === 'geral') {
     safeCall(()=>monthlyLine('ch-monthly', UNITS, fd), 'monthlyLine');
+    engajamentoFiltroUnidade = null; // mudou filtro do topo: volta a seguir a Unidade do topo
     safeCall(()=>engajamentoCombo('ch-engajamento'), 'engajamentoCombo');
     safeCall(()=>engajamentoUnidadeBar('ch-engajamento-unidade'), 'engajamentoUnidadeBar');
     safeCall(()=>engajamentoHabBar('ch-engajamento-hab'), 'engajamentoHabBar');
