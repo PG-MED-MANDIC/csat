@@ -6,6 +6,42 @@
 <title>CSAT Pós Med — São Leopoldo Mandic</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <link rel="stylesheet" href="style.css">
+<style id="responsivo-local">
+/* ===== RESPONSIVO (copia local) ===== */
+img,canvas{max-width:100%;}
+.card,.cbox{min-width:0;}
+.tabs-nav{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+.tab-btn{white-space:nowrap;}
+.cbox,.card{overflow-x:auto;}
+@media (max-width:1100px){
+  [style*="grid-template-columns:1.15fr 1fr"],[style*="grid-template-columns:1fr 1fr"]{grid-template-columns:1fr!important;}
+}
+@media (max-width:768px){
+  .header{padding:12px 16px;flex-wrap:wrap;gap:10px;}
+  .header-left{gap:10px;flex-wrap:wrap;}
+  .header-title h1{font-size:17px;}
+  .header-badges{flex-wrap:wrap;}
+  .filters-bar{padding:10px 16px;gap:10px;}
+  .fg{flex:1 1 150px;flex-direction:column;align-items:stretch;gap:4px;}
+  .fg select,.ms-btn,#f-hab,#f-diturma{width:100%!important;min-width:0;}
+  .fsep{display:none;}
+  .btn-reset{margin-left:0;flex:1 1 100%;}
+  .tabs-nav{padding:0 8px;}
+  .tab-btn{padding:11px 13px;font-size:12px;}
+  .tab-content{padding:14px 16px;}
+  .cards-row{gap:10px;}
+  .card{min-width:140px;flex:1 1 140px;}
+  .cbox,.cbox[style]{min-width:0!important;flex:1 1 100%!important;padding:14px;}
+  .ms-dropdown{max-width:calc(100vw - 32px);}
+  [style*="min-width:380px"],[style*="min-width:340px"],[style*="min-width:330px"],[style*="min-width:320px"]{min-width:0!important;}
+  .cons-hm thead th.lbl{min-width:140px;}
+  [style*="grid-template-columns:repeat(auto-fill,minmax(320px"]{grid-template-columns:1fr!important;}
+}
+@media (max-width:480px){
+  .card{flex:1 1 100%;}
+  .header-title span{font-size:10px;}
+}
+</style>
 </head>
 <body>
 
@@ -28,7 +64,7 @@
       <span class="badge badge-blue">Pós-graduação Medicina</span>
       <span class="badge badge-gold">Diretoria de Produto Nacional</span>
     </div>
-    <div id="last-update" style="font-size:10px;color:rgba(255,255,255,.55)">05/10/2026 14:14</div>
+    <div id="last-update" style="font-size:10px;color:rgba(255,255,255,.55)">01/10/2026 08:55</div>
   </div>
 </div>
 
