@@ -5,7 +5,7 @@
 //  2 Causa = palavras/expressões que mais se repetem nos comentários do tema escolhido
 //  3 Ação e 4 Resultado = textos digitados na hora, NÃO são salvos -- só vão pro PDF.
 
-const FCAR = { unidade: '', curso: '', mes: '', sem: '', base: 'neg', tema: '' };
+const FCAR = { unidade: '', curso: '', mes: '', sem: '', base: 'neg', tema: '', cmp: '', trBase: 'neg' };
 const FCAR_SEM_LBL = { 1: 'Sem 1 (dias 1-7)', 2: 'Sem 2 (8-14)', 3: 'Sem 3 (15-21)', 4: 'Sem 4 (22-28)', 5: 'Sem 5 (29+)' };
 // semana do mês a partir de ts (AAAAMMDDhhmmss): dias 1-7 = Sem 1, 8-14 = Sem 2, ... 29+ = Sem 5; 0 se não houver data
 function fcarSemDe(r) { const d = r.ts ? Math.floor(r.ts / 1e6) % 100 : 0; return d ? Math.min(Math.ceil(d / 7), 5) : 0; }
@@ -117,12 +117,12 @@ function fcarSet(chave, valor) {
   FCAR.exp = false;
   if (chave !== 'tema' && chave !== 'base') FCAR.tema = '';
   if (chave === 'base') FCAR.tema = '';
-  if (chave === 'mes') FCAR.sem = '';
+  if (chave === 'mes') { FCAR.sem = ''; FCAR.cmp = ''; }
   renderFcarTab();
 }
 
 function fcarLimpar() {
-  Object.assign(FCAR, { unidade: '', curso: '', mes: '', sem: '', base: 'neg', tema: '' });
+  Object.assign(FCAR, { unidade: '', curso: '', mes: '', sem: '', base: 'neg', tema: '', cmp: '' });
   ['unidade', 'curso', 'base'].forEach(k => { const s = document.getElementById('fcar-f-' + k); if (s) s.value = FCAR[k]; });
   renderFcarTab();
 }
@@ -268,6 +268,8 @@ function renderFcarTab() {
     });
   }
 
+  fcarRenderTend();
+
   // ---- 2 CAUSA: palavras e expressões do tema escolhido ----
   const sel = document.getElementById('fcar-tema-sel');
   sel.innerHTML = ranking.map(x => `<option value="${x.tema}"${x.tema === FCAR.tema ? ' selected' : ''}>${TEMA_LABEL_MAP[x.tema] || x.tema} (${x.n})</option>`).join('');
@@ -301,6 +303,129 @@ function renderFcarTab() {
     if (FCAR.qtd > 5) h += ` <button class="fcar-mais" onclick="FCAR.qtd=5;renderFcarTab()">Mostrar só 5</button>`;
     boxC.innerHTML = h;
   }
+}
+
+// ============ EVOLUÇÃO DOS TEMAS (mês escolhido x outro mês, negativos E positivos) ============
+// Independe da opção "Comentários" lá de cima: mostra os dois lados. Respeita Unidade/Curso; ignora semana.
+function fcarTrendCls(n1, N1, n0, N0, base) {
+  const p1 = N1 ? n1 / N1 : 0, p0 = N0 ? n0 / N0 : 0, dif = (p1 - p0) * 100;
+  const pool = (N1 + N0) ? (n1 + n0) / (N1 + N0) : 0;
+  const se = (N1 && N0) ? Math.sqrt(pool * (1 - pool) * (1 / N1 + 1 / N0)) : 0;
+  const z = se ? (p1 - p0) / se : 0;
+  const poucos = N1 < 10 || N0 < 10;
+  const real = !poucos && Math.abs(z) >= 1.96;
+  const bom = base === 'pos' ? dif > 0 : dif < 0;
+  return { p1, p0, dif, poucos, real, cl: !real ? 'eq' : bom ? 'dn' : 'up' };
+}
+
+function fcarTrendSet(chave, valor) { FCAR[chave] = valor; fcarRenderTend(); }
+
+function fcarTrendCont(rows) {
+  const c = {};
+  rows.forEach(r => r.temas.forEach(t => { c[t] = (c[t] || 0) + 1; }));
+  return c;
+}
+
+function fcarTrendBloco(base, mesA, mesB, todosRows) {
+  const nomeT = t => TEMA_LABEL_MAP[t] || t, pos = base === 'pos';
+  const A = todosRows.filter(r => r.mes_label === mesA && r.sentiment === base);
+  const B = todosRows.filter(r => r.mes_label === mesB && r.sentiment === base);
+  const cA = fcarTrendCont(A), cB = fcarTrendCont(B), NA = A.length, NB = B.length;
+  const titulo = pos ? '👍 Elogios (comentários positivos)' : '⚠ Problemas (comentários negativos)';
+  const sub = pos ? 'Veja o que está sendo elogiado: são as práticas que dá para levar para as áreas com problema.' : 'Quais problemas aparecem mais ou menos que no mês de comparação.';
+  if (!NA || !NB) {
+    return `<div class="fcar-tb"><div class="fcar-tb-h">${titulo}</div><div class="fcar-vazio">${!NA ? mesA : mesB} não tem comentários ${pos ? 'positivos' : 'negativos'} neste filtro.</div></div>`;
+  }
+  const temas = [...new Set([...Object.keys(cA), ...Object.keys(cB)])]
+    .map(t => Object.assign({ tema: t, n1: cA[t] || 0, n0: cB[t] || 0 }, fcarTrendCls(cA[t] || 0, NA, cB[t] || 0, NB, base)))
+    .sort((a, b) => (b.n1 - a.n1) || (b.n0 - a.n0));
+  const melhor = temas.filter(x => x.real && x.cl === 'dn'), pior = temas.filter(x => x.real && x.cl === 'up');
+  const lista = FCAR.trTodos ? temas : temas.slice(0, 8);
+  const pc = (n, N) => fcarPct1(N ? n / N * 100 : 0) + '%';
+  let h = `<div class="fcar-tb"><div class="fcar-tb-h">${titulo}</div><div class="fcar-tb-s">${sub}</div>` +
+    `<div class="fcar-sig"><span class="fcar-sg dn">🟢 ${melhor.length} melhorou</span><span class="fcar-sg up">🔴 ${pior.length} piorou</span>` +
+    `<span class="fcar-sg eq">⚪ ${temas.length - melhor.length - pior.length} estável / poucos dados</span></div>`;
+  if (melhor.length) h += `<div class="fcar-sg-l dn"><b>Melhorou:</b> ${melhor.map(x => nomeT(x.tema)).join(', ')}</div>`;
+  if (pior.length) h += `<div class="fcar-sg-l up"><b>Piorou:</b> ${pior.map(x => nomeT(x.tema)).join(', ')}</div>`;
+  h += `<div class="fcar-tr fcar-tr-hd"><span>Tema</span><span>${mesB}<small>${NB} comentários</small></span><span>${mesA}<small>${NA} comentários</small></span><span>Variação</span></div>`;
+  h += lista.map(x => {
+    const seta = x.dif > 0 ? '▲' : x.dif < 0 ? '▼' : '•';
+    const lbl = x.poucos ? 'poucos dados' : x.real ? (x.cl === 'dn' ? 'melhorou' : 'piorou') : 'estável';
+    return `<div class="fcar-tr"><span class="fcar-nome">${nomeT(x.tema)}</span>` +
+      `<span class="fcar-tr-v"><b>${x.n0} de ${NB}</b><small>${pc(x.n0, NB)}</small></span>` +
+      `<span class="fcar-tr-v"><b>${x.n1} de ${NA}</b><small>${pc(x.n1, NA)}</small></span>` +
+      `<span class="fcar-tr-d ${x.cl}" title="${x.poucos ? 'Menos de 10 comentários em um dos meses: não dá para concluir' : x.real ? 'Diferença com pouca chance de ser acaso' : 'Diferença pequena: pode ser só acaso'}">${seta} ${x.dif > 0 ? '+' : ''}${fcarPct1(x.dif)} pp<small>${lbl}</small></span></div>`;
+  }).join('');
+  if (temas.length > 8) h += `<button class="fcar-mais" onclick="FCAR.trTodos=!FCAR.trTodos;fcarRenderTend()">${FCAR.trTodos ? 'Mostrar só os 8 principais' : `Mostrar todos os ${temas.length} temas`}</button>`;
+  return h + '</div>';
+}
+
+function fcarRenderTend() {
+  const box = document.getElementById('fcar-trend-box');
+  if (!box) return;
+  const meses = FCAR._meses || [], mesA = FCAR.mes;
+  const outros = meses.filter(m => m !== mesA);
+  const iA = meses.indexOf(mesA), mesAnt = iA > 0 ? meses[iA - 1] : '';
+  if (!outros.length) { box.innerHTML = '<div class="fcar-vazio">É preciso ter comentários em pelo menos 2 meses para comparar.</div>'; return; }
+  const mesB = FCAR.cmp && outros.indexOf(FCAR.cmp) >= 0 ? FCAR.cmp : (mesAnt || outros[0]);
+  FCAR.cmp = mesB;
+  const todos = fcarBaseRows('', false);
+  const selB = document.getElementById('fcar-cmp-mes');
+  if (selB) {
+    selB.innerHTML = outros.map(m => `<option value="${m}"${m === mesB ? ' selected' : ''}>${m}${m === mesAnt ? ' (mês anterior)' : ''}</option>`).join('');
+  }
+  const lbA = document.getElementById('fcar-cmp-a');
+  if (lbA) lbA.textContent = mesA;
+  const resumoMes = m => {
+    const rr = todos.filter(r => r.mes_label === m), c = k => rr.filter(r => r.sentiment === k).length;
+    return `<div class="fcar-rm"><b>${m}</b>: ${rr.length} comentários no total · <span class="up">${c('neg')} negativos</span> · <span class="dn">${c('pos')} positivos</span> · <span class="eq">${c('neu')} neutros</span></div>`;
+  };
+  box.innerHTML = `<div class="fcar-rms">${resumoMes(mesA)}${resumoMes(mesB)}<div class="fcar-rm-n">Neutros (notas 7-8, ou texto que contradiz a nota) não entram nos dois quadros abaixo: só negativos e positivos são comparados.</div></div>` +
+    `<div class="fcar-tb-grid">${fcarTrendBloco('neg', mesA, mesB, todos)}${fcarTrendBloco('pos', mesA, mesB, todos)}</div>` +
+    `<div class="fcar-como"><b>Como ler:</b> cada linha é um tema; os números são "quantos comentários citam o tema, de quantos comentários o mês teve" (em % para ser justo mesmo com meses de tamanhos diferentes). ` +
+    `<b>pp</b> = pontos percentuais de diferença. <span class="fcar-var dn" style="display:inline">Verde</span> = melhorou (menos reclamação ou mais elogio); ` +
+    `<span class="fcar-var up" style="display:inline">vermelho</span> = piorou; cinza = estável ou poucos dados (menos de 10 comentários em um dos meses, ou diferença que pode ser só acaso).</div>`;
+
+  // ---- gráfico: % do tema mês a mês (todos os meses) ----
+  const base = FCAR.trBase, nomeT = t => TEMA_LABEL_MAP[t] || t;
+  document.querySelectorAll('.fcar-trb').forEach(b => b.classList.toggle('on', b.dataset.b === base));
+  const dadosM = meses.map(m => { const rr = todos.filter(r => r.mes_label === m && r.sentiment === base); return { m, N: rr.length, c: fcarTrendCont(rr) }; });
+  const cAtual = (dadosM.find(d => d.m === mesA) || { c: {} }).c;
+  const top5 = Object.keys(cAtual).sort((a, b) => cAtual[b] - cAtual[a]).slice(0, 5);
+  destroyChart('fcar-trend-chart');
+  const cv = document.getElementById('fcar-trend-chart'), vz = document.getElementById('fcar-trend-vazio');
+  if (!cv) return;
+  const tem = top5.length && dadosM.some(d => d.N);
+  vz.style.display = tem ? 'none' : 'block';
+  cv.parentNode.style.display = tem ? '' : 'none';
+  if (!tem) return;
+  CHARTS['fcar-trend-chart'] = new Chart(cv, {
+    type: 'line',
+    data: {
+      labels: dadosM.map(d => d.N < 10 ? `${d.m} (${d.N})` : d.m),
+      datasets: top5.map((t, i) => ({
+        label: nomeT(t),
+        data: dadosM.map(d => d.N ? Math.round((d.c[t] || 0) / d.N * 1000) / 10 : null),
+        borderColor: FCAR_COR[i], backgroundColor: FCAR_COR[i], borderWidth: 2.5, tension: .3, spanGaps: true,
+        pointRadius: ctx => dadosM[ctx.dataIndex].m === mesA ? 7 : 4, pointHoverRadius: 7
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 10, font: { size: 11 } } },
+        tooltip: { callbacks: {
+          title: it => dadosM[it[0].dataIndex].m + ' · ' + dadosM[it[0].dataIndex].N + ' comentários ' + (base === 'pos' ? 'positivos' : 'negativos'),
+          label: c => { const d = dadosM[c.dataIndex], n = d.c[top5[c.datasetIndex]] || 0; return `${c.dataset.label}: ${fcarPct1(c.parsed.y)}% (${n} de ${d.N})`; }
+        } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v + '%' }, grid: { color: '#f0f0f0' }, title: { display: true, text: '% dos comentários ' + (base === 'pos' ? 'positivos' : 'negativos') + ' que citam o tema', font: { size: 11 } } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
 }
 
 function fcarVerMais(btn) {
@@ -444,6 +569,28 @@ async function fcarGerarPdf() {
     .fcar-com{padding:8px 12px}
     .fcar-como{font-size:12px;line-height:1.6;color:#444;background:#f5f7fc;border-radius:6px;padding:8px 10px;margin-top:10px}
     .fcar-com-t mark{background:#fde68a;color:#1a1a2e;border-radius:3px;padding:0 2px}
+    .fcar-rms{background:#f5f7fc;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12.5px;line-height:1.7}
+    .fcar-rm .up{color:#dc2626;font-weight:700}.fcar-rm .dn{color:#16a34a;font-weight:700}.fcar-rm .eq{color:#6b7280;font-weight:700}
+    .fcar-rm-n{font-size:11px;color:var(--muted);margin-top:2px}
+    .fcar-tb-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    @media(max-width:1000px){.fcar-tb-grid{grid-template-columns:1fr}}
+    .fcar-tb{border:1px solid var(--border);border-radius:10px;padding:12px;background:#fff;min-width:0}
+    .fcar-tb-h{font-size:14px;font-weight:700;color:#1A2459}
+    .fcar-tb-s{font-size:11px;color:var(--muted);margin:2px 0 8px}
+    .fcar-sig{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+    .fcar-sg{font-size:11.5px;font-weight:700;border-radius:12px;padding:3px 10px;background:#f3f4f6;color:#555}
+    .fcar-sg.dn{background:#dcfce7;color:#15803d}.fcar-sg.up{background:#fee2e2;color:#b91c1c}
+    .fcar-sg-l{font-size:12px;line-height:1.5;margin-bottom:4px}
+    .fcar-sg-l.dn{color:#15803d}.fcar-sg-l.up{color:#b91c1c}
+    .fcar-tr{display:grid;grid-template-columns:minmax(80px,1.3fr) 1fr 1fr 1.1fr;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #f0f0f0;font-size:12px}
+    .fcar-tr-hd{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--border);margin-top:8px}
+    .fcar-tr small{display:block;font-size:10.5px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0}
+    .fcar-tr-v b{color:#1A2459;font-size:12.5px}
+    .fcar-tr-d{font-weight:700;text-align:right}
+    .fcar-tr-d.up{color:#dc2626}.fcar-tr-d.dn{color:#16a34a}.fcar-tr-d.eq{color:#6b7280}
+    .fcar-trb{border:1.5px solid #01559B;background:#fff;color:#01559B;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+    .fcar-trb.on{background:#1A2459;border-color:#1A2459;color:#fff}
+    @media(max-width:600px){.fcar-tr{grid-template-columns:1fr 1fr 1fr}.fcar-tr .fcar-nome{grid-column:1/-1}.fcar-tr-hd span:first-child{display:none}.fcar-tr-d{text-align:left}}
     .fcar-pdf{background:#1A2459;color:#F5C518;border:0;border-radius:6px;padding:10px 18px;font-weight:700;cursor:pointer}
     .fcar-pdf:disabled{opacity:.6;cursor:default}`;
   document.head.appendChild(st);

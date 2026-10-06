@@ -652,6 +652,25 @@ img,canvas{max-width:100%;}
   </div>
 
   <div class="cbox full" style="margin-bottom:14px">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+      <h3 style="margin:0">📈 Evolução dos temas — estamos melhorando?</h3>
+      <div class="fg"><label>Comparar <span id="fcar-cmp-a" style="font-weight:700"></span> com</label><select id="fcar-cmp-mes" onchange="fcarTrendSet('cmp',this.value)"></select></div>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin:0 0 12px">Compara o mês escolhido nos filtros acima com o mês anterior (ou com qualquer outro mês que você escolher ao lado), para <b>problemas e elogios ao mesmo tempo</b>. Respeita os filtros de Unidade e Curso.</p>
+    <div id="fcar-trend-box"></div>
+    <div style="margin-top:18px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--navy)">Mês a mês, os 5 temas mais citados do mês escolhido:</span>
+        <button class="fcar-trb on" data-b="neg" onclick="fcarTrendSet('trBase','neg')">Problemas</button>
+        <button class="fcar-trb" data-b="pos" onclick="fcarTrendSet('trBase','pos')">Elogios</button>
+      </div>
+      <div class="cwrap" style="height:380px"><canvas id="fcar-trend-chart"></canvas></div>
+      <div id="fcar-trend-vazio" class="fcar-vazio" style="display:none">Sem comentários suficientes para o gráfico.</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Meses entre parênteses no eixo têm menos de 10 comentários (o número é a quantidade): interprete com cautela.</div>
+    </div>
+  </div>
+
+  <div class="cbox full" style="margin-bottom:14px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
       <h3 style="margin:0">2 · Causa — o que os comentários realmente dizem</h3>
       <div class="fg"><label>Tema</label><select id="fcar-tema-sel" onchange="fcarSet('tema',this.value)"></select></div>
@@ -682,6 +701,6 @@ img,canvas{max-width:100%;}
 </div>
 
 <script src="protecao.js"></script>
-<script>Protecao.iniciar({ arquivo: 'data.enc', modo: 'script', depois: ['app.js?v=20261005', 'fcar.js?v=20261005'], titulo: 'CSAT Pós Med', chaveSessao: 'csat_chave_v1' });</script>
+<script>Protecao.iniciar({ arquivo: 'data.enc', modo: 'script', depois: ['app.js?v=20261006', 'fcar.js?v=20261006'], titulo: 'CSAT Pós Med', chaveSessao: 'csat_chave_v1' });</script>
 </body>
 </html>
