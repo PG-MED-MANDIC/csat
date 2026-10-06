@@ -2,6 +2,18 @@
 function diTurmaLabel(hab, cod){ const c=String(cod==null?'':cod).trim(); return DI_TURMA_MAP[c] || ((hab||'') + ' T' + c); }
 
 
+// Rede de segurança: o pipeline antigo gravava mes_label '' para meses depois de
+// set/26 (mes_order 14 = out/26, 15 = nov/26, 16 = dez/26). Preenche a partir
+// do mes_order para o dashboard funcionar mesmo com data.enc ainda não regenerado.
+(function fixMesLabelFuturo() {
+  const ML = {14:'out/26', 15:'nov/26', 16:'dez/26'};
+  ['DATA_GERAL', 'DATA_ITENS', 'DATA_FEEDBACK', 'DATA_TURMAS'].forEach(nome => {
+    let arr; try { arr = eval(nome); } catch (e) { return; }
+    if (!Array.isArray(arr)) return;
+    arr.forEach(r => { if (r && !r.mes_label && ML[r.mes_order]) r.mes_label = ML[r.mes_order]; });
+  });
+})();
+
 // Build index: db-id -> geral record (for joining itens)
 const IDX_GERAL = {};
 DATA_GERAL.forEach(r => { IDX_GERAL[r['db-id']] = r; });
@@ -24,7 +36,7 @@ function populateFilters() {
   });
   const mesOpts = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(DATA_GERAL.map(r=>r.mes_label));
   const mesContainer = document.getElementById('ms-mes-items');
@@ -122,7 +134,7 @@ function monthlyLine(canvasId, units, filteredData) {
   destroyChart(canvasId);
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(filteredData.map(r=>r.mes_label));
   const labels = allMes.filter(m=>presentMes.has(m.l)).map(m=>m.l);
@@ -451,7 +463,7 @@ function evolucaoGeralCombo(canvasId, filteredData) {
   destroyChart(canvasId);
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(filteredData.map(r=>r.mes_label));
   const mesFiltered = allMes.filter(m=>presentMes.has(m.l));
@@ -1126,9 +1138,9 @@ function renderCrossAnalise(containerId, unit, filteredData, filteredItens) {
 let onepageFilters = { modulo: '' };
 
 const OP_TIPOS = ['Aula Online','Aula Prática','Professor','Infraestrutura','Plataforma Avida','Triagem'];
-const OP_MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+const OP_MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
 const OP_MES_LABEL = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-  1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+  1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 const OP_TEMA_LABEL = {
   'Organizacao':'Organização','Alimentacao':'Alimentação','Aula Online':'Aula Online',
   'Plataforma':'Plataforma','Professores':'Professores','Aulas':'Aulas','Estrutura':'Estrutura',
@@ -2247,7 +2259,7 @@ async function loadNewBase(input) {
     const ONLINE_HABS = ['Psiquiatria Clínica', 'Endocrinologia Clínica'];
     const MES_LABEL = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
       1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',
-      7:'jul/26',8:'ago/26',13:'set/26'};
+      7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 
     function parseMes(r) {
       // Use data_resposta as source of truth (nome_mes_resposta can be stale)
@@ -2487,9 +2499,9 @@ const HAB_COLORS = [
 
 function evolHabChart(canvasId, unit, filteredData) {
   destroyChart(canvasId);
-  const MES_ORDER_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+  const MES_ORDER_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
   const MES_LABELS_MAP = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 
   const uData = filteredData.filter(r => r.unidade_calc === unit);
   const presentMes = new Set(uData.map(r=>r.mes_order));
@@ -2539,9 +2551,9 @@ function evolHabChart(canvasId, unit, filteredData) {
 
 // ============ VARIAÇÃO MÊS A MÊS — ITENS ============
 function variacaoItensTable(filteredItens) {
-  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
   const MES_LABEL_MAP = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 
   const selectedUnits = F.unidade ? [F.unidade] : ['BRASÍLIA','CAMPINAS','CONSOLAÇÃO','ONLINE'];
   const tipos = [...new Set(filteredItens.map(r=>r.tipo_avaliacao))].sort();
@@ -2623,7 +2635,7 @@ function renderTurmasNeg(divId, unitName, filteredData) {
   const container = document.getElementById(divId);
   if (!container) return;
 
-  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
 
   // Determine last 2 months present in filteredData
   const presentMes = [...new Set(filteredData.filter(r=>r.unidade_calc===unitName).map(r=>r.mes_order))];
@@ -2634,7 +2646,7 @@ function renderTurmasNeg(divId, unitName, filteredData) {
   // If a mes filter is active, use that as curMes
   const _mesStr = F.mes && F.mes.length > 0 ? F.mes[F.mes.length-1] : null;
   const activeMes = _mesStr ? (Object.entries({9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'})
+    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'})
     .find(([,v])=>v===_mesStr)||[null])[0] : null;
   const effectiveCur = activeMes ? parseInt(activeMes) : curMes;
   const effectivePrev = activeMes
@@ -2659,7 +2671,7 @@ function renderTurmasNeg(divId, unitName, filteredData) {
     .sort((a, b) => a[1].cur.media - b[1].cur.media);
 
   const MES_LABEL = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 
   if (!negativas.length) {
     container.innerHTML = `
@@ -2755,9 +2767,9 @@ function buildSemanaCheckboxes() {
   if (!container) return;
 
   // Determine target month
-  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
   const MES_LABEL_MAP = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 
   let targetMesLabel = F.mes.length === 1 ? F.mes[0] : '';
   if (!targetMesLabel) {
@@ -3211,9 +3223,9 @@ function analyzeComment(r) {
 }
 
 function applyFiltersResumo() {
-  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
   const MES_LABEL_MAP = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
   let effectiveMes = null; // null = all months; array = selected months
   if (F.mes && F.mes.length > 0) {
     effectiveMes = F.mes; // array
@@ -3309,7 +3321,7 @@ function populateModulosFilters() {
 
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(DATA_GERAL.map(r => r.mes_label));
   const mesLabels = allMes.filter(m => presentMes.has(m.l)).map(m => m.l);
@@ -3448,7 +3460,7 @@ function populateTurmasFilters() {
 
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(DATA_GERAL.map(r => r.mes_label));
   const mesLabels = allMes.filter(m => presentMes.has(m.l)).map(m => m.l);
@@ -3593,7 +3605,7 @@ function populateTriagemFilters() {
 
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(DATA_GERAL.map(r => r.mes_label));
   const mesLabels = allMes.filter(m => presentMes.has(m.l)).map(m => m.l);
@@ -3779,7 +3791,7 @@ function populateCorrelacoesFilters() {
 
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(DATA_GERAL.map(r => r.mes_label));
   const mesLabels = allMes.filter(m => presentMes.has(m.l)).map(m => m.l);
@@ -4402,7 +4414,7 @@ function populateComentariosFilters() {
 
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(DATA_GERAL.map(r => r.mes_label));
   const mesLabels = allMes.filter(m => presentMes.has(m.l)).map(m => m.l);
@@ -4538,9 +4550,9 @@ let analiseTemaSelecionado = '';
 let analiseTurmaNegExpandido = null;
 let _analiseTemaRowsCache = [];
 
-const ANALISE_MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+const ANALISE_MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
 const ANALISE_MES_LABEL_MAP = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-  1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+  1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 
 function clearAnaliseFilters() {
   analiseFilters = { unidade: '', curso: '', mes: '' };
@@ -4573,7 +4585,7 @@ function populateAnaliseFilters() {
 
   const allMes = [
     {o:9,l:'set/25'},{o:10,l:'out/25'},{o:11,l:'nov/25'},{o:12,l:'dez/25'},
-    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'}
+    {o:1,l:'jan/26'},{o:2,l:'fev/26'},{o:3,l:'mar/26'},{o:4,l:'abr/26'},{o:5,l:'mai/26'},{o:6,l:'jun/26'},{o:7,l:'jul/26'},{o:8,l:'ago/26'},{o:13,l:'set/26'},{o:14,l:'out/26'},{o:15,l:'nov/26'},{o:16,l:'dez/26'}
   ];
   const presentMes = new Set(DATA_GERAL.map(r => r.mes_label));
   const mesLabels = allMes.filter(m => presentMes.has(m.l)).map(m => m.l);
@@ -5564,8 +5576,8 @@ function renderResumo() {
 
   const curMesLabel = (function(){
     if (F.mes && F.mes.length > 0) return F.mes[F.mes.length-1];
-    const MES_SEQ=[9,10,11,12,1,2,3,4,5,6,7,8,13];
-    const ML={9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+    const MES_SEQ=[9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
+    const ML={9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
     const pm=new Set(DATA_FEEDBACK.map(r=>r.mes_order).filter(Boolean));
     const s=MES_SEQ.filter(m=>pm.has(m));
     return ML[s[s.length-1]]||'';
@@ -5688,9 +5700,9 @@ function renderItensSparklines(filteredItens) {
   const container = document.getElementById('itens-sparklines');
   if (!container) return;
 
-  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+  const MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
   const MES_LABEL_MAP = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+    1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 
   const TIPOS = ['Aula Online','Aula Prática','Infraestrutura','Plataforma Avida','Professor','Triagem'];
   const UNITS = F.unidade ? [F.unidade] : ['BRASÍLIA','CAMPINAS','CONSOLAÇÃO','ONLINE'];
@@ -6279,9 +6291,9 @@ if (_turmasSearchEl) {
 // Filtros próprios: esta aba NÃO usa a barra global (F), justamente para permitir
 // multi-seleção de turmas (comparar N turmas da mesma especialidade).
 
-const CONS_MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13];
+const CONS_MES_SEQ = [9,10,11,12,1,2,3,4,5,6,7,8,13,14,15,16];
 const CONS_MES_LABEL = {9:'set/25',10:'out/25',11:'nov/25',12:'dez/25',
-  1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26'};
+  1:'jan/26',2:'fev/26',3:'mar/26',4:'abr/26',5:'mai/26',6:'jun/26',7:'jul/26',8:'ago/26',13:'set/26',14:'out/26',15:'nov/26',16:'dez/26'};
 const CONS_MES_IDX = {};
 CONS_MES_SEQ.forEach((m,i) => { CONS_MES_IDX[CONS_MES_LABEL[m]] = i; });
 

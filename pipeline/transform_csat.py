@@ -63,11 +63,12 @@ ONLINE_HABS = {"Psiquiatria Clínica", "Endocrinologia Clínica"}
 
 # Mesmo mapa fixo (ano letivo começando set/2025) que já existe em
 # index.html -- mesma limitação lá: não tem rótulo além de mes_order=13
-# (set/26). Portado como está, não "corrigido" aqui.
+# (set/26); estendido até dez/26 em 06/10/2026 (mes_order 13 + meses seguintes).
 MES_LABEL = {
     9: "set/25", 10: "out/25", 11: "nov/25", 12: "dez/25",
     1: "jan/26", 2: "fev/26", 3: "mar/26", 4: "abr/26", 5: "mai/26",
     6: "jun/26", 7: "jul/26", 8: "ago/26", 13: "set/26",
+    14: "out/26", 15: "nov/26", 16: "dez/26",
 }
 
 # tipo_avaliacao (planilha) -> campo em DATA_GERAL.
