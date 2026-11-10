@@ -97,3 +97,25 @@ def upsert_engajamento(path: Path, rows: list[dict]) -> None:
         new_value = json.dumps(rows, ensure_ascii=False)
         lines.append(f"const DATA_ENGAJAMENTO = {new_value};\n")
     path.write_text("".join(lines), encoding="utf-8", newline="")
+
+
+def carregar_mapa_turmas(*pastas: Path) -> dict:
+    """Lê `mapa_turmas.json` (DI -> rótulo "Especialidade Unidade - Tn (DI x)"), gerado LOCALMENTE por
+    automacao-dashboard/atualizar_mapa_turmas.py a partir do Book do TOTVS + rótulos do Painel-alunos
+    (sem dado pessoal). Procura na primeira pasta que o tiver. Se não existir ou estiver inválido,
+    devolve {} e o DI_TURMA_MAP segue como está (não quebra a atualização)."""
+    for pasta in pastas:
+        f = Path(pasta) / "mapa_turmas.json"
+        if f.exists():
+            try:
+                return json.loads(f.read_text(encoding="utf-8")).get("mapa") or {}
+            except (ValueError, OSError):
+                return {}
+    return {}
+
+
+def upsert_di_turma_map(path: Path, mapa: dict) -> None:
+    """Regrava a constante DI_TURMA_MAP (o navegador usa ela em diTurmaLabel)."""
+    lines = path.read_text(encoding="utf-8", newline="").splitlines(keepends=True)
+    lines = _upsert_const(lines, "DI_TURMA_MAP", mapa)
+    path.write_text("".join(lines), encoding="utf-8", newline="")

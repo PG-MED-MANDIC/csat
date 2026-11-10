@@ -38,7 +38,14 @@ from config import DADOS_FONTE_DIR, DATA_ENC_PATH, DATA_JS_PATH, INDEX_HTML_PATH
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
 from protecao import cifrar_arquivo, decifrar_arquivo, obter_senha
-from render_index import read_di_turma_map, upsert_all, upsert_engajamento, upsert_last_update
+from render_index import (
+    carregar_mapa_turmas,
+    read_di_turma_map,
+    upsert_all,
+    upsert_di_turma_map,
+    upsert_engajamento,
+    upsert_last_update,
+)
 
 # Desde a migração pro GitHub Actions (2026-09-21), o runner roda em UTC --
 # sem fuso explícito, "última atualização" saía 3h atrasada (hora de
@@ -118,6 +125,23 @@ def main() -> int:
         melt_warnings: list[str] = []
         rows = melt_raw_export(df, warnings=melt_warnings)
         di_turma_map = read_di_turma_map(DATA_JS_PATH)
+
+        # Turmas novas / correções vindas de mapa_turmas.json (gerado LOCAL por
+        # automacao-dashboard/atualizar_mapa_turmas.py, sem dado pessoal). Se não
+        # existir, o DI_TURMA_MAP segue como está. Em CI, DADOS_FONTE_DIR já é
+        # automacao-dashboard/dados-fonte; local, cai na 2ª pasta.
+        extra_turmas = carregar_mapa_turmas(
+            DADOS_FONTE_DIR, DADOS_FONTE_DIR.parent / "automacao-dashboard" / "dados-fonte"
+        )
+        if extra_turmas:
+            n_novas = sum(1 for k in extra_turmas if k not in di_turma_map)
+            di_turma_map = {**di_turma_map, **extra_turmas}
+            upsert_di_turma_map(DATA_JS_PATH, di_turma_map)
+            report.append(
+                f"  Mapa de turmas: +{n_novas} novas, {len(extra_turmas) - n_novas} corrigidas (de mapa_turmas.json)."
+            )
+        else:
+            report.append("  Mapa de turmas: mapa_turmas.json não encontrado -- DI_TURMA_MAP mantido.")
 
         data_geral = build_data_geral(rows, di_turma_map)
         data = {
