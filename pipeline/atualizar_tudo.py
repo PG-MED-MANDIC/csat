@@ -38,8 +38,12 @@ from config import DADOS_FONTE_DIR, DATA_ENC_PATH, DATA_JS_PATH, INDEX_HTML_PATH
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
 from protecao import cifrar_arquivo, decifrar_arquivo, obter_senha
+from fonte_typeform import carregar_linhas as carregar_linhas_typeform
+from fonte_typeform import rows_do_typeform
+from mesclar import mesclar_por_id, rotular_pendentes
 from render_index import (
     carregar_mapa_turmas,
+    read_const,
     read_di_turma_map,
     upsert_all,
     upsert_di_turma_map,
@@ -91,7 +95,16 @@ def main() -> int:
         _log(report)
         return 1
 
+    # Fonte Typeform (webhook -> n8n -> typeform_respostas.json, ver fonte_typeform.py). Sem o
+    # arquivo, tudo roda exatamente como antes (só Indecx). Com ele, o Indecx passa a ser opcional:
+    # se cair ou for desligado, a atualização segue só com o Typeform, e o resultado é MESCLADO ao
+    # que já está em data.js (o histórico nunca é apagado).
+    linhas_typeform = carregar_linhas_typeform(
+        DADOS_FONTE_DIR, DADOS_FONTE_DIR.parent / "automacao-dashboard" / "dados-fonte"
+    )
+
     report.append("PASSO 1/2 -- obter a planilha da pesquisa CSAT por item no Indecx")
+    output_path: Path | None = None
     existing = _planilha_de_hoje()
     if existing is not None:
         output_path = existing
@@ -105,25 +118,37 @@ def main() -> int:
             output_path = fetch_and_save()
         except (IndecxConfigurationError, RuntimeError) as e:
             report.append(f"  FALHOU: {e}")
-            _log(report)
-            return 1
+            if not linhas_typeform:
+                _log(report)
+                return 1
+            report.append("  Indecx indisponível -- seguindo só com o Typeform.")
         except Exception:
             report.append("  FALHOU: erro inesperado ao buscar na API. Detalhes:")
             report.append(traceback.format_exc())
-            _log(report)
-            return 1
-
-        if output_path is None:
-            report.append("  --dry-run ou exportação vazia -- index.html não foi alterado.")
-            _log(report)
-            return 0
-        report.append(f"  OK -- planilha salva em {output_path.relative_to(DADOS_FONTE_DIR.parent)}.")
+            if not linhas_typeform:
+                _log(report)
+                return 1
+            report.append("  Indecx indisponível -- seguindo só com o Typeform.")
+        else:
+            if output_path is None:
+                if not linhas_typeform:
+                    report.append("  --dry-run ou exportação vazia -- index.html não foi alterado.")
+                    _log(report)
+                    return 0
+                report.append("  Sem planilha do Indecx hoje -- seguindo só com o Typeform.")
+            else:
+                report.append(f"  OK -- planilha salva em {output_path.relative_to(DADOS_FONTE_DIR.parent)}.")
 
     report.append("\nPASSO 2/2 -- recalcular DATA_GERAL/DATA_ITENS/DATA_FEEDBACK/DATA_TURMAS")
     try:
-        df = pd.read_excel(output_path)
         melt_warnings: list[str] = []
-        rows = melt_raw_export(df, warnings=melt_warnings)
+        rows: list[dict] = []
+        if output_path is not None:
+            rows += melt_raw_export(pd.read_excel(output_path), warnings=melt_warnings)
+        if linhas_typeform:
+            rows_tf, resumo_tf = rows_do_typeform(linhas_typeform, warnings=melt_warnings)
+            report.append(f"  Typeform: {resumo_tf}.")
+            rows += rows_tf
         di_turma_map = read_di_turma_map(DATA_JS_PATH)
 
         # Turmas novas / correções vindas de mapa_turmas.json (gerado LOCAL por
@@ -135,19 +160,36 @@ def main() -> int:
         )
         if extra_turmas:
             n_novas = sum(1 for k in extra_turmas if k not in di_turma_map)
+            n_corrigidas = sum(1 for k, v in extra_turmas.items() if k in di_turma_map and di_turma_map[k] != v)
             di_turma_map = {**di_turma_map, **extra_turmas}
             upsert_di_turma_map(DATA_JS_PATH, di_turma_map)
             report.append(
-                f"  Mapa de turmas: +{n_novas} novas, {len(extra_turmas) - n_novas} corrigidas (de mapa_turmas.json)."
+                f"  Mapa de turmas: +{n_novas} novas, {n_corrigidas} corrigidas (de mapa_turmas.json)."
             )
         else:
             report.append("  Mapa de turmas: mapa_turmas.json não encontrado -- DI_TURMA_MAP mantido.")
 
         data_geral = build_data_geral(rows, di_turma_map)
+        data_itens = build_data_itens(rows)
+        data_feedback = build_data_feedback(rows, di_turma_map)
+        if linhas_typeform:
+            # Mescla incremental: mantém o histórico de data.js, substitui o que veio de novo (por
+            # db-id) e atualiza rótulos de turma antigos que estavam no nome de reserva.
+            ant_geral = read_const(DATA_JS_PATH, "DATA_GERAL")
+            ant_itens = read_const(DATA_JS_PATH, "DATA_ITENS")
+            ant_feedback = read_const(DATA_JS_PATH, "DATA_FEEDBACK")
+            n_rot = rotular_pendentes(ant_geral, di_turma_map) + rotular_pendentes(ant_feedback, di_turma_map)
+            data_geral = mesclar_por_id(ant_geral, data_geral, "db-id")
+            data_itens = mesclar_por_id(ant_itens, data_itens, "db-id")
+            data_feedback = mesclar_por_id(ant_feedback, data_feedback, "db_id")
+            report.append(
+                f"  Mescla: histórico mantido ({len(ant_geral)} respostas já gravadas); "
+                f"{n_rot} rótulo(s) de turma atualizado(s)."
+            )
         data = {
             "DATA_GERAL": data_geral,
-            "DATA_ITENS": build_data_itens(rows),
-            "DATA_FEEDBACK": build_data_feedback(rows, di_turma_map),
+            "DATA_ITENS": data_itens,
+            "DATA_FEEDBACK": data_feedback,
             "DATA_TURMAS": build_data_turmas(data_geral),
         }
         upsert_all(DATA_JS_PATH, data)

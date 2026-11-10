@@ -119,3 +119,11 @@ def upsert_di_turma_map(path: Path, mapa: dict) -> None:
     lines = path.read_text(encoding="utf-8", newline="").splitlines(keepends=True)
     lines = _upsert_const(lines, "DI_TURMA_MAP", mapa)
     path.write_text("".join(lines), encoding="utf-8", newline="")
+
+
+def read_const(path: Path, name: str) -> list:
+    """Lê (sem alterar) uma constante de dado (`const NAME = [...];`) já gravada no arquivo de dados.
+    Usada pela mescla incremental (mesclar.py). Constante ausente = lista vazia."""
+    text = path.read_text(encoding="utf-8")
+    m = re.search(rf"^const {re.escape(name)} = (.*);\s*$", text, re.MULTILINE)
+    return json.loads(m.group(1)) if m else []
