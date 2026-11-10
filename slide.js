@@ -1,8 +1,9 @@
 /* Gerar slide (PowerPoint) — módulo autônomo, portado do projeto painel-gerador-slide.
  * Tudo roda no navegador: prints via html-to-image e .pptx via pptxgenjs. Nada é enviado a servidor.
  * Como usar em outro dash: incluir este arquivo e chamar GeradorSlide.iniciar({ titulo: 'Nome do dash' }).
- * Blocos selecionáveis = `.cbox` (título no <h3>) e `.cards-row` da aba ativa.
- * Os seletores abaixo (SEL) podem ser ajustados por dash. */
+ * Blocos selecionáveis = elementos de SEL.blocos da aba ativa (padrão do csat: `.cbox` e `.cards-row`).
+ * Outros dashs passam `seletores` (aba, abaBotao, blocos, indicadores, titulo) e, opcionalmente,
+ * `pilulas`/`rotulos` ([nome, seletor]) para o rodapé de filtros. */
 (function () {
   'use strict';
 
@@ -14,6 +15,7 @@
     aba: '.tab-content.active',
     abaBotao: '.tabs-nav .tab-btn.active',
     blocos: '.cbox, .cards-row',
+    indicadores: '.cards-row',   // blocos deste tipo viram "Indicadores"
     titulo: 'h3',
     fundo: '#F5F7FC'
   };
@@ -53,8 +55,31 @@
     return libsPromessa;
   }
 
+  /* Filtros genéricos (dashs sem função própria): selects visíveis com valor + botões/pílulas ativos. */
+  function filtrosGenericos() {
+    var p = [];
+    document.querySelectorAll('select').forEach(function (s) {
+      if (!s.offsetParent || !s.value) return;
+      var rot = s.id, l = s.previousElementSibling;
+      if (!l || l.tagName !== 'LABEL') { var pai = s.closest('.fg, .f'); l = pai && pai.querySelector('label'); }
+      if (l) rot = texto(l).replace(/:$/, '');
+      p.push(rot + ': ' + s.options[s.selectedIndex].text);
+    });
+    (cfg.pilulas || []).forEach(function (par) {
+      var t = []; document.querySelectorAll(par[1]).forEach(function (n) { if (n.offsetParent) t.push(texto(n)); });
+      if (t.length) p.push(par[0] + ': ' + t.join(', '));
+    });
+    (cfg.rotulos || []).forEach(function (par) {
+      var n = document.querySelector(par[1]);
+      if (n && n.offsetParent && texto(n) && !/^(todos|todas)/i.test(texto(n))) p.push(par[0] + ': ' + texto(n));
+    });
+    return p.length ? p.join(' · ') : 'Sem filtros (todos)';
+  }
+
   /* Filtros ativos agora (vão no rodapé de cada bloco, para o slide dizer o que mostra). */
   function filtrosAtuais() {
+    if (cfg.filtros) return cfg.filtros();
+    if (cfg.seletores) return filtrosGenericos();
     var p = [];
     function sel(id, nome) {
       var s = document.getElementById(id);
@@ -79,7 +104,7 @@
     var cont = {}, lista = [];
     aba.querySelectorAll(SEL.blocos).forEach(function (b) {
       if (!b.offsetParent || b.offsetWidth < 120 || b.offsetHeight < 40) return;
-      var t = b.classList.contains('cards-row') ? 'Indicadores' : texto(b.querySelector(SEL.titulo)) || 'Bloco';
+      var t = b.matches(SEL.indicadores) ? 'Indicadores' : texto(b.querySelector(SEL.titulo)) || 'Bloco';
       cont[t] = (cont[t] || 0) + 1;
       var id = secao + '::' + t + (cont[t] > 1 ? ' #' + cont[t] : '');
       lista.push({ id: id, secao: secao, titulo: t + (cont[t] > 1 ? ' (' + cont[t] + ')' : ''), elemento: b });
@@ -294,6 +319,7 @@
   /* ---------- início ---------- */
   function iniciar(opcoes) {
     for (var k in (opcoes || {})) cfg[k] = opcoes[k];
+    if (cfg.seletores) for (var q in cfg.seletores) SEL[q] = cfg.seletores[q];
     camada = el('div', 'position:absolute;left:0;top:0;width:0;height:0;z-index:9000;display:none');
     camada.setAttribute('data-sem-captura', '');
     document.body.appendChild(camada);
