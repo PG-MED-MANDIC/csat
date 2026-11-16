@@ -84,8 +84,8 @@ def _planilha_de_hoje() -> Path | None:
 
 def _engajamento_novo_se_ligado(antigo: dict, data_geral: list[dict], report: list[str]) -> dict:
     """Calcula o engajamento pelo método NOVO (Book + checklist, ver engajamento_novo.py) e registra a
-    comparação com o antigo no relatório. Só SUBSTITUI o antigo se ENGAJAMENTO_METODO=novo (padrão:
-    antigo, até o usuário conferir a comparação). Qualquer erro cai de volta no antigo, sem quebrar."""
+    comparação com o antigo no relatório. Só SUBSTITUI o antigo quando ENGAJAMENTO_METODO=novo (padrão desde 16/11/2026;
+    ENGAJAMENTO_METODO=antigo volta ao método do BigQuery). Qualquer erro cai de volta no antigo, sem quebrar."""
     try:
         convites = carregar_convites(DADOS_FONTE_DIR, DADOS_FONTE_DIR.parent / "automacao-dashboard" / "dados-fonte")
         if convites is None:
@@ -96,10 +96,10 @@ def _engajamento_novo_se_ligado(antigo: dict, data_geral: list[dict], report: li
             novo_desde=os.getenv("ENGAJAMENTO_NOVO_DESDE") or NOVO_DESDE_PADRAO,
         )
         report.extend(linhas)
-        if (os.getenv("ENGAJAMENTO_METODO") or "antigo").lower() == "novo":
+        if (os.getenv("ENGAJAMENTO_METODO") or "novo").lower() == "novo":
             report.append("OK -- Engajamento: usando o método NOVO (ENGAJAMENTO_METODO=novo).")
             return novo
-        report.append("OK -- Engajamento: método NOVO só calculado e comparado; publicado segue o antigo (ENGAJAMENTO_METODO != novo).")
+        report.append("OK -- Engajamento: método NOVO só calculado e comparado; publicado segue o antigo (ENGAJAMENTO_METODO=antigo).")
     except Exception:
         report.append("OK -- Engajamento (método novo): ERRO ao calcular -- seguindo no método antigo. Detalhes:")
         report.append(traceback.format_exc())

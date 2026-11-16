@@ -25,7 +25,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 
-NOVO_DESDE_PADRAO = "2026-06"
+NOVO_DESDE_PADRAO = "2026-10"  # decisão do usuário (16/11): método novo de out/26 em diante
 MES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
 _DI_RE = re.compile(r"\(DI (\d+)\)")
 
