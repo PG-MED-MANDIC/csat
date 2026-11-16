@@ -26,6 +26,7 @@ dado identificável de aluno.
 from __future__ import annotations
 
 import json
+import os
 import sys
 import traceback
 from datetime import date, datetime
@@ -34,6 +35,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 
+from engajamento_novo import NOVO_DESDE_PADRAO, carregar_convites, construir
 from config import DADOS_FONTE_DIR, DATA_ENC_PATH, DATA_JS_PATH, INDEX_HTML_PATH, PIPELINE_DIR
 from fetch_indecx import fetch_and_save
 from indecx_client import IndecxConfigurationError
@@ -78,6 +80,30 @@ def _planilha_de_hoje() -> Path | None:
     path = DADOS_FONTE_DIR / f"export_indecx_csat_{date.today():%y_%m_%d}.xlsx"
     return path if path.exists() else None
 
+
+
+def _engajamento_novo_se_ligado(antigo: dict, data_geral: list[dict], report: list[str]) -> dict:
+    """Calcula o engajamento pelo método NOVO (Book + checklist, ver engajamento_novo.py) e registra a
+    comparação com o antigo no relatório. Só SUBSTITUI o antigo se ENGAJAMENTO_METODO=novo (padrão:
+    antigo, até o usuário conferir a comparação). Qualquer erro cai de volta no antigo, sem quebrar."""
+    try:
+        convites = carregar_convites(DADOS_FONTE_DIR, DADOS_FONTE_DIR.parent / "automacao-dashboard" / "dados-fonte")
+        if convites is None:
+            report.append("  Engajamento (método novo): convites_turma_modulo.json não encontrado -- seguindo no método antigo.")
+            return antigo
+        novo, linhas = construir(
+            convites, data_geral, antigo, datetime.now(FUSO_BR).date(),
+            novo_desde=os.getenv("ENGAJAMENTO_NOVO_DESDE") or NOVO_DESDE_PADRAO,
+        )
+        report.extend(linhas)
+        if (os.getenv("ENGAJAMENTO_METODO") or "antigo").lower() == "novo":
+            report.append("  Engajamento: usando o método NOVO (ENGAJAMENTO_METODO=novo).")
+            return novo
+        report.append("  Engajamento: método NOVO só calculado e comparado; publicado segue o antigo (ENGAJAMENTO_METODO != novo).")
+    except Exception:
+        report.append("  Engajamento (método novo): erro ao calcular -- seguindo no método antigo. Detalhes:")
+        report.append(traceback.format_exc())
+    return antigo
 
 def main() -> int:
     report: list[str] = []
@@ -204,6 +230,7 @@ def main() -> int:
         engajamento_path = DADOS_FONTE_DIR / "engajamento_mensal.json"
         if engajamento_path.exists():
             engajamento_dados = json.loads(engajamento_path.read_text(encoding="utf-8"))
+            engajamento_dados = _engajamento_novo_se_ligado(engajamento_dados, data_geral, report)
             upsert_engajamento(DATA_JS_PATH, engajamento_dados)
             n_mes = len(engajamento_dados.get("mensal", []))
             n_unid = len(engajamento_dados.get("por_unidade", []))
