@@ -267,6 +267,28 @@ function populateEngajamentoFiltro() {
   }).join('');
 }
 
+// Nota de método (pedido do usuário 16/11/2026): a partir de DATA_ENGAJAMENTO.metodo_novo_desde
+// (ex. '2026-10') a adesão usa o método NOVO (convites = alunos Matriculado no Book x módulos do
+// checklist); antes disso segue o método antigo (convites enviados pelo Indecx, via BigQuery).
+// O mês corrente entra parcial. Sem a chave (dado antigo), não mostra nada.
+function engajamentoNotaMetodo(serie) {
+  const D = (typeof DATA_ENGAJAMENTO !== 'undefined') ? DATA_ENGAJAMENTO : null;
+  const desde = D?.metodo_novo_desde;
+  if (!desde || !serie?.length) return '';
+  const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  const lab = `${MESES[parseInt(desde.slice(5, 7), 10) - 1]}/${desde.slice(2, 4)}`;
+  const temNovo = serie.some(r => r.mes >= desde);
+  const temAntigo = serie.some(r => r.mes < desde);
+  const hoje = new Date();
+  const mesAtual = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+  const partes = [];
+  if (temNovo) partes.push(`<b>Método novo desde ${lab}</b>: convites = alunos matriculados (Book) × módulos do mês`);
+  if (temNovo && temAntigo) partes.push(`meses anteriores a ${lab} seguem o método antigo (convites enviados pelo Indecx), então a comparação direta tem salto de método`);
+  const atual = serie.find(r => r.mes === mesAtual && r.mes >= desde);
+  if (atual) partes.push(`${atual.mes_label} está em andamento (parcial: cresce conforme chegam respostas)`);
+  return partes.length ? '⚠ ' + partes.join(' · ') : '';
+}
+
 function engajamentoCombo(canvasId) {
   destroyChart(canvasId);
   if (typeof DATA_ENGAJAMENTO === 'undefined' || !DATA_ENGAJAMENTO?.mensal?.length) return;
@@ -294,6 +316,8 @@ function engajamentoCombo(canvasId) {
       ? `<b>${escopo}</b> · ${periodo}: <b>${agg.resp.toLocaleString('pt-BR')}</b> respondidos ÷ <b>${agg.conv.toLocaleString('pt-BR')}</b> convites = <b style="color:#16a34a">${agg.pct.toFixed(1)}%</b>`
         + (unidadeIgnorada ? ' <span style="color:#b45309">· filtro de unidade não se aplica junto com habilitação (a base não cruza os dois)</span>' : '')
       : `<b>${escopo}</b> · sem convites no período selecionado`;
+    const nota = engajamentoNotaMetodo(mensal);
+    if (nota) resumo.innerHTML += `<div style="margin-top:4px;font-size:11px;color:#64748b">${nota}</div>`;
   }
 
   const labels = mensal.map(r => r.mes_label);
