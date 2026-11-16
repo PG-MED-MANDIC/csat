@@ -10,7 +10,8 @@ Regras (decididas com o usuário em 16/11/2026):
     (DI) e mês da resposta casam com uma linha de convites. Turma que teve módulo e nenhuma resposta
     fica com 0%. Resposta de turma/mês sem convite não entra (vai pro relatório).
   - Meses antes de ENGAJAMENTO_NOVO_DESDE ficam com o método antigo (convites do Indecx/BigQuery,
-    `engajamento_mensal.json`). O mês corrente NÃO entra (só publica mês fechado).
+    `engajamento_mensal.json`). O mês corrente ENTRA (decisão do usuário, 16/11): convites = módulos
+    que já começaram no mês; sobe a cada rodada conforme chegam respostas (parcial até o mês fechar).
 
 Este módulo é puro (sem I/O de data.js): recebe os dados e devolve o dicionário no MESMO formato
 do engajamento_mensal.json (mensal, por_unidade, por_habilitacao, mensal_por_unidade,
@@ -108,7 +109,7 @@ def construir(convites: dict, data_geral: list[dict], antigo: dict | None, hoje:
     meses_novos: set[str] = set()
     for l in convites["linhas"]:
         mes = l["mes"]
-        if not (novo_desde <= mes < mes_atual):
+        if not (novo_desde <= mes <= mes_atual):
             continue
         meses_novos.add(mes)
         resp = resp_tm.get((l["di"], mes), 0)
@@ -122,7 +123,7 @@ def construir(convites: dict, data_geral: list[dict], antigo: dict | None, hoje:
     # histórico (método antigo): meses antes de novo_desde, e meses >= novo_desde que o novo não cobriu
     ant = antigo or {}
     def mantem(mes: str) -> bool:
-        return mes < novo_desde or (mes not in meses_novos and mes < mes_atual and mes >= novo_desde)
+        return mes < novo_desde or (mes not in meses_novos and mes >= novo_desde)
 
     for m in ant.get("mensal", []):
         if mantem(m["mes"]):
@@ -167,10 +168,11 @@ def construir(convites: dict, data_geral: list[dict], antigo: dict | None, hoje:
                f"(Book {convites.get('book', {}).get('modificado')}).")
     for mes in sorted(meses_novos):
         n = mensal[mes]
+        parcial = " (mês em andamento: parcial)" if mes == mes_atual else ""
         a_ = ant_mes.get(mes)
         antigo_txt = f"{a_['conv']} conv, {a_['resp']} resp, {a_['pct']}%" if a_ else "sem dado"
-        rel.append(f"OK -- Engajamento {mes}: NOVO {n['conv']} conv, {n['resp']} resp, {_pct(n['resp'], n['conv'])}% | ANTIGO {antigo_txt}")
-    fora = sum(v for (di, mes), v in resp_tm.items() if (di, mes) not in chaves_conv and novo_desde <= mes < mes_atual)
+        rel.append(f"OK -- Engajamento {mes}: NOVO {n['conv']} conv, {n['resp']} resp, {_pct(n['resp'], n['conv'])}% | ANTIGO {antigo_txt}{parcial}")
+    fora = sum(v for (di, mes), v in resp_tm.items() if (di, mes) not in chaves_conv and novo_desde <= mes <= mes_atual)
     if fora:
         rel.append(f"OK -- Engajamento: {fora} resposta(s) de turma/mês sem convite no Book+checklist ficaram fora do cálculo.")
     if sem_di:

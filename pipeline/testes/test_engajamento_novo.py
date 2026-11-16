@@ -33,11 +33,12 @@ def test_turma_sem_resposta_fica_zero_e_soma_antes_de_dividir():
     assert (m["conv"], m["resp"], m["pct"]) == (40, 5, 12.5)  # 5/40, não média de 50% e 0%
 
 
-def test_resposta_duplicada_conta_uma_vez_e_mes_corrente_fica_fora():
+def test_resposta_duplicada_conta_uma_vez_e_mes_corrente_entra():
     convites = {"linhas": [_linha("1", "2026-10", 10), _linha("1", "2026-11", 10)], "gerado_em": "x", "book": {}}
     dg = [_resp(1, "1", 2026, 14), _resp(1, "1", 2026, 14), _resp(2, "1", 2026, 15)]
     novo, _ = construir(convites, dg, None, date(2026, 11, 16), novo_desde="2026-06")
-    assert [(m["mes"], m["resp"]) for m in novo["mensal"]] == [("2026-10", 1)]  # nov/26 ainda aberto
+    # nov/26 (mês corrente) entra com o que já chegou; a mesma resposta (db-id) em duplicidade conta 1 vez
+    assert [(m["mes"], m["conv"], m["resp"]) for m in novo["mensal"]] == [("2026-10", 10, 1), ("2026-11", 10, 1)]
 
 
 def test_historico_antigo_antes_do_corte():
@@ -55,7 +56,7 @@ class EngajamentoNovoTests(unittest.TestCase):
         test_turma_sem_resposta_fica_zero_e_soma_antes_de_dividir()
 
     def test_duplicada_e_mes_corrente(self):
-        test_resposta_duplicada_conta_uma_vez_e_mes_corrente_fica_fora()
+        test_resposta_duplicada_conta_uma_vez_e_mes_corrente_entra()
 
     def test_historico_antigo(self):
         test_historico_antigo_antes_do_corte()
