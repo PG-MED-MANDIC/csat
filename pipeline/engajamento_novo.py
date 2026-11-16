@@ -160,19 +160,19 @@ def construir(convites: dict, data_geral: list[dict], antigo: dict | None, hoje:
         "metodo_novo_desde": novo_desde,
     }
 
-    # relatório: novo x antigo por mês + respostas que ficaram de fora
+    # relatório: novo x antigo por mês + respostas que ficaram de fora. Cada linha começa com "OK -- "
+    # porque o orquestrador (automacao-dashboard/atualizar_diario_n8n.py) só guarda essas linhas no log.
     ant_mes = {m["mes"]: m for m in ant.get("mensal", [])}
-    rel.append(f"  Engajamento NOVO (Book+checklist) desde {novo_desde}; convites gerados em {convites.get('gerado_em')} "
+    rel.append(f"OK -- Engajamento NOVO (Book+checklist) desde {novo_desde}; convites gerados em {convites.get('gerado_em')} "
                f"(Book {convites.get('book', {}).get('modificado')}).")
-    rel.append("  mês     | NOVO conv resp %      | ANTIGO conv resp %")
     for mes in sorted(meses_novos):
         n = mensal[mes]
-        a = ant_mes.get(mes)
-        antigo_txt = f"{a['conv']:5d} {a['resp']:4d} {a['pct']}%" if a else "-"
-        rel.append(f"  {mes}  | {n['conv']:5d} {n['resp']:4d} {_pct(n['resp'], n['conv'])}% | {antigo_txt}")
+        a_ = ant_mes.get(mes)
+        antigo_txt = f"{a_['conv']} conv, {a_['resp']} resp, {a_['pct']}%" if a_ else "sem dado"
+        rel.append(f"OK -- Engajamento {mes}: NOVO {n['conv']} conv, {n['resp']} resp, {_pct(n['resp'], n['conv'])}% | ANTIGO {antigo_txt}")
     fora = sum(v for (di, mes), v in resp_tm.items() if (di, mes) not in chaves_conv and novo_desde <= mes < mes_atual)
     if fora:
-        rel.append(f"  {fora} resposta(s) de turma/mês sem convite no Book+checklist ficaram fora do cálculo.")
+        rel.append(f"OK -- Engajamento: {fora} resposta(s) de turma/mês sem convite no Book+checklist ficaram fora do cálculo.")
     if sem_di:
-        rel.append(f"  {sem_di} resposta(s) sem DI identificável na turma (fora do cálculo).")
+        rel.append(f"OK -- Engajamento: {sem_di} resposta(s) sem DI identificável na turma (fora do cálculo).")
     return dados, rel

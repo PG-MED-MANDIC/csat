@@ -89,7 +89,7 @@ def _engajamento_novo_se_ligado(antigo: dict, data_geral: list[dict], report: li
     try:
         convites = carregar_convites(DADOS_FONTE_DIR, DADOS_FONTE_DIR.parent / "automacao-dashboard" / "dados-fonte")
         if convites is None:
-            report.append("  Engajamento (método novo): convites_turma_modulo.json não encontrado -- seguindo no método antigo.")
+            report.append("OK -- Engajamento (método novo): convites_turma_modulo.json não encontrado -- seguindo no método antigo.")
             return antigo
         novo, linhas = construir(
             convites, data_geral, antigo, datetime.now(FUSO_BR).date(),
@@ -97,11 +97,11 @@ def _engajamento_novo_se_ligado(antigo: dict, data_geral: list[dict], report: li
         )
         report.extend(linhas)
         if (os.getenv("ENGAJAMENTO_METODO") or "antigo").lower() == "novo":
-            report.append("  Engajamento: usando o método NOVO (ENGAJAMENTO_METODO=novo).")
+            report.append("OK -- Engajamento: usando o método NOVO (ENGAJAMENTO_METODO=novo).")
             return novo
-        report.append("  Engajamento: método NOVO só calculado e comparado; publicado segue o antigo (ENGAJAMENTO_METODO != novo).")
+        report.append("OK -- Engajamento: método NOVO só calculado e comparado; publicado segue o antigo (ENGAJAMENTO_METODO != novo).")
     except Exception:
-        report.append("  Engajamento (método novo): erro ao calcular -- seguindo no método antigo. Detalhes:")
+        report.append("OK -- Engajamento (método novo): ERRO ao calcular -- seguindo no método antigo. Detalhes:")
         report.append(traceback.format_exc())
     return antigo
 
